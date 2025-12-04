@@ -3,7 +3,7 @@
 
 server {
     listen 80;
-    server_name infinityitsolutions.com.br www.infinityitsolutions.com.br api.infinityitsolutions.com.br;
+    server_name personalweb.infinityitsolutions.com.br personalapi.infinityitsolutions.com.br;
 
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
