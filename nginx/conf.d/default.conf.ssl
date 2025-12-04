@@ -67,9 +67,9 @@ server {
     listen 443 ssl http2;
     server_name personalapi.infinityitsolutions.com.br;
 
-    # SSL Configuration
-    ssl_certificate /etc/letsencrypt/live/personalapi.infinityitsolutions.com.br/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/personalapi.infinityitsolutions.com.br/privkey.pem;
+    # SSL Configuration - usa o mesmo certificado (gerado para ambos domínios)
+    ssl_certificate /etc/letsencrypt/live/personalweb.infinityitsolutions.com.br/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/personalweb.infinityitsolutions.com.br/privkey.pem;
     
     # SSL Settings
     ssl_session_timeout 1d;
