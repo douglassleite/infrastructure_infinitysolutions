@@ -1,207 +1,285 @@
-# 🏗️ Personal Trainer - Infrastructure
+# 🏗️ Personal Trainer Infrastructure
 
-Infraestrutura Docker para o sistema Personal Trainer, incluindo proxy reverso, banco de dados e cache.
+Infraestrutura Docker para o sistema Personal Trainer (PostgreSQL, Redis, Nginx com SSL).
 
 ## 📦 Serviços
 
-| Serviço | Imagem | Porta | Descrição |
-|---------|--------|-------|-----------|
-| **Nginx** | nginx:alpine | 80, 443 | Proxy reverso com SSL |
-| **PostgreSQL** | postgres:15-alpine | 5432 | Banco de dados |
-| **Redis** | redis:7-alpine | 6379 | Cache e sessões |
-| **Certbot** | certbot/certbot | - | Renovação automática SSL |
+| Serviço | Container | Porta | Descrição |
+|---------|-----------|-------|-----------|
+| **PostgreSQL** | postgres-db | 5432 | Banco de dados |
+| **Redis** | redis-cache | 6379 | Cache e filas |
+| **Nginx** | nginx-proxy | 80, 443 | Proxy reverso com SSL |
+| **Certbot** | certbot | - | Renovação automática SSL |
 
-## 🌐 Subdomínios
+## 🌐 Domínios
 
-- **Website:** `personalweb.infinityitsolutions.com.br`
-- **API:** `personalapi.infinityitsolutions.com.br`
+| Subdomínio | Destino |
+|------------|---------|
+| `personalweb.infinityitsolutions.com.br` | Frontend (porta 3000) |
+| `personalapi.infinityitsolutions.com.br` | Backend API (porta 3001) |
 
-## 🚀 Quick Start
+---
 
-### 1. Clone o repositório
+## 🚀 Deploy Completo (VPS)
+
+### Ordem de execução
+
+```
+1. Infrastructure (este repo) → Cria rede + PostgreSQL + Redis + Nginx
+2. Backend → Conecta na rede
+3. Frontend → Conecta na rede
+```
+
+### Passo 1: Infraestrutura
 
 ```bash
+# Clonar repositório
+cd ~
+mkdir -p academia_na_mao && cd academia_na_mao
 git clone https://github.com/douglassleite/personal_trainer_infrastructure.git
 cd personal_trainer_infrastructure
-```
 
-### 2. Configure as variáveis de ambiente
-
-```bash
+# Configurar variáveis
 cp .env.example .env
-nano .env
+nano .env  # Editar senhas
+
+# Criar diretórios necessários
+mkdir -p certbot/conf certbot/www nginx/conf.d
+
+# Copiar config inicial do nginx (sem SSL)
+cp nginx/conf.d/default.conf.nossl nginx/conf.d/default.conf
+
+# Subir serviços
+docker compose up -d
+
+# Verificar
+docker ps
 ```
 
-Edite as variáveis:
-```env
-POSTGRES_USER=personal_trainer
-POSTGRES_PASSWORD=sua_senha_segura
-POSTGRES_DB=personal_trainer_db
-REDIS_PASSWORD=sua_senha_redis
-```
-
-### 3. Inicie os serviços
+### Passo 2: Backend
 
 ```bash
-# Iniciar Postgres e Redis primeiro
-docker compose up -d postgres redis
+cd ~/academia_na_mao
+git clone https://github.com/douglassleite/personal_trainer_backend.git
+cd personal_trainer_backend
 
-# Aguarde 10 segundos
-sleep 10
+# Configurar variáveis
+cp .env.example .env
+nano .env  # Editar
 
-# Inicie o Nginx
-docker compose up -d nginx
+# Build e executar
+docker compose up -d --build
+
+# Executar migrations
+docker exec personal-trainer-backend npx prisma migrate deploy
 ```
 
-> **Nota:** A rede `personal_trainer_infrastructure_app-network` será criada automaticamente.
-
-## 🔒 Configurar SSL
-
-### Primeira vez (obter certificado)
+### Passo 3: Frontend
 
 ```bash
-# Use a configuração inicial (sem SSL)
-mv nginx/conf.d/default.conf nginx/conf.d/default.conf.ssl
-cp nginx/conf.d/initial.conf.example nginx/conf.d/default.conf
+cd ~/academia_na_mao
+git clone https://github.com/douglassleite/personal_trainer_web.git
+cd personal_trainer_web
 
-# Reinicie Nginx
-docker-compose restart nginx
+# Build e executar
+docker compose -f docker-compose.prod.yml up -d --build
+```
 
-# Obtenha o certificado
-docker-compose run --rm certbot certonly \
-  --webroot \
+### Passo 4: SSL (Certbot)
+
+```bash
+cd ~/academia_na_mao/personal_trainer_infrastructure
+
+# Gerar certificados
+docker run -it --rm \
+  -v $(pwd)/certbot/conf:/etc/letsencrypt \
+  -v $(pwd)/certbot/www:/var/www/certbot \
+  certbot/certbot certonly --webroot \
   --webroot-path=/var/www/certbot \
   -d personalweb.infinityitsolutions.com.br \
   -d personalapi.infinityitsolutions.com.br \
-  --email seu@email.com \
-  --agree-tos \
-  --no-eff-email
+  --email seu-email@exemplo.com \
+  --agree-tos --no-eff-email
 
-# Restaure a configuração com SSL
-rm nginx/conf.d/default.conf
-mv nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf
+# Ativar configuração SSL
+cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf
+docker restart nginx-proxy
 
-# Reinicie Nginx
-docker-compose restart nginx
+# Testar HTTPS
+curl https://personalapi.infinityitsolutions.com.br/health
 ```
 
-### Renovar certificado
+---
+
+## 🔧 Variáveis de Ambiente
+
+### Arquivo `.env`
+
+```env
+# PostgreSQL
+POSTGRES_USER=personal_trainer
+POSTGRES_PASSWORD=SENHA_SEGURA_AQUI
+POSTGRES_DB=personal_trainer_db
+
+# Redis
+REDIS_PASSWORD=SENHA_REDIS_AQUI
+```
+
+> ⚠️ **Importante:** Use senhas fortes em produção!
+
+---
+
+## 🔄 Comandos Úteis
+
+### Status dos containers
 
 ```bash
-docker-compose run --rm certbot renew
-docker-compose restart nginx
+docker ps
 ```
 
-## 📁 Estrutura
+### Logs
+
+```bash
+# Nginx
+docker logs -f nginx-proxy
+
+# PostgreSQL
+docker logs -f postgres-db
+
+# Redis
+docker logs -f redis-cache
+```
+
+### Reiniciar serviços
+
+```bash
+# Todos
+docker compose restart
+
+# Individual
+docker restart nginx-proxy
+docker restart postgres-db
+```
+
+### Parar tudo
+
+```bash
+docker compose down
+```
+
+### Atualizar após mudanças
+
+```bash
+git pull origin master
+docker compose up -d
+```
+
+---
+
+## 🔒 Renovar Certificados SSL
+
+Os certificados Let's Encrypt expiram em 90 dias.
+
+### Renovação manual
+
+```bash
+cd ~/academia_na_mao/personal_trainer_infrastructure
+
+docker run -it --rm \
+  -v $(pwd)/certbot/conf:/etc/letsencrypt \
+  -v $(pwd)/certbot/www:/var/www/certbot \
+  certbot/certbot renew
+
+docker restart nginx-proxy
+```
+
+### Renovação automática (cron)
+
+```bash
+# Editar crontab
+crontab -e
+
+# Adicionar (renova todo dia 1 às 3h)
+0 3 1 * * cd ~/academia_na_mao/personal_trainer_infrastructure && docker run --rm -v $(pwd)/certbot/conf:/etc/letsencrypt -v $(pwd)/certbot/www:/var/www/certbot certbot/certbot renew && docker restart nginx-proxy
+```
+
+---
+
+## 🌐 Rede Docker
+
+Todos os serviços usam a rede `personal-trainer-network`:
+
+| Serviço | Hostname interno |
+|---------|------------------|
+| PostgreSQL | `postgres-db` |
+| Redis | `redis-cache` |
+| Backend | `personal-trainer-backend` |
+| Frontend | `personal-trainer-web` |
+
+O backend e frontend conectam como `external: true` em seus docker-compose.
+
+---
+
+## 📁 Estrutura de Arquivos
 
 ```
 personal_trainer_infrastructure/
-├── docker-compose.yml      # Definição dos serviços
-├── .env                    # Variáveis de ambiente (não commitar!)
-├── .env.example            # Template de variáveis
+├── docker-compose.yml          # Definição dos serviços
+├── .env                        # Variáveis (não commitar!)
+├── .env.example                # Template de variáveis
 ├── nginx/
-│   ├── nginx.conf          # Configuração principal do Nginx
+│   ├── nginx.conf              # Config principal
 │   └── conf.d/
-│       ├── default.conf    # Virtual hosts (com SSL)
-│       └── initial.conf.example  # Config inicial (sem SSL)
-├── certbot/
-│   ├── conf/               # Certificados SSL (gerado)
-│   └── www/                # Desafio ACME (gerado)
-├── deploy.sh               # Script de deploy automatizado
-└── manage.sh               # Comandos de gerenciamento
+│       ├── default.conf        # Config ativa
+│       ├── default.conf.nossl  # Sem SSL (para gerar cert)
+│       └── default.conf.ssl    # Com SSL (produção)
+└── certbot/
+    ├── conf/                   # Certificados SSL
+    └── www/                    # Desafio ACME
 ```
 
-## 🔧 Comandos Úteis
+---
 
-### Usando manage.sh
+## 🐛 Troubleshooting
 
-```bash
-chmod +x manage.sh
-
-./manage.sh status          # Ver status dos containers
-./manage.sh logs            # Ver logs de todos
-./manage.sh logs-nginx      # Ver logs do Nginx
-./manage.sh restart-nginx   # Reiniciar Nginx
-./manage.sh ssl-renew       # Renovar SSL
-./manage.sh ssl-status      # Ver status do SSL
-./manage.sh db-shell        # Acessar PostgreSQL
-./manage.sh redis-shell     # Acessar Redis
-./manage.sh cleanup         # Limpar recursos não utilizados
-```
-
-### Comandos Docker diretos
+### Nginx não inicia (host not found)
 
 ```bash
-# Ver status
-docker-compose ps
+# Verificar se backend/frontend estão na rede
+docker network inspect personal-trainer-network
 
-# Ver logs
-docker-compose logs -f nginx
-docker-compose logs -f postgres
-docker-compose logs -f redis
-
-# Reiniciar serviço
-docker-compose restart nginx
-
-# Parar tudo
-docker-compose down
-
-# Parar e remover volumes (CUIDADO!)
-docker-compose down -v
-```
-
-## 🔗 Integração com outros projetos
-
-Esta infrastructure é usada pelos seguintes projetos:
-
-- [personal_trainer_backend](https://github.com/douglassleite/personal_trainer_backend) - API Node.js
-- [personal_trainer_web](https://github.com/douglassleite/personal_trainer_web) - Frontend Next.js
-
-Todos os projetos se conectam através da rede Docker `app-network`.
-
-## 📊 Monitoramento
-
-```bash
-# Recursos dos containers
-docker stats
-
-# Espaço em disco
-docker system df
-
-# Verificar saúde dos serviços
-docker-compose ps
-```
-
-## 🆘 Troubleshooting
-
-### Nginx não inicia
-```bash
-# Verificar configuração
-docker-compose exec nginx nginx -t
-
-# Ver logs
-docker-compose logs nginx
+# Usar config nossl temporariamente
+cp nginx/conf.d/default.conf.nossl nginx/conf.d/default.conf
+docker restart nginx-proxy
 ```
 
 ### PostgreSQL não conecta
+
 ```bash
 # Verificar se está rodando
-docker-compose ps postgres
-
-# Ver logs
-docker-compose logs postgres
+docker ps | grep postgres
 
 # Testar conexão
-docker-compose exec postgres pg_isready
+docker exec -it postgres-db psql -U personal_trainer -d personal_trainer_db
 ```
 
-### Certificado SSL expirado
+### Certificado SSL inválido
+
 ```bash
-# Renovar manualmente
-docker-compose run --rm certbot renew --force-renewal
-docker-compose restart nginx
+# Verificar se existe
+ls -la certbot/conf/live/
+
+# Regenerar se necessário
+docker run -it --rm \
+  -v $(pwd)/certbot/conf:/etc/letsencrypt \
+  -v $(pwd)/certbot/www:/var/www/certbot \
+  certbot/certbot delete --cert-name personalweb.infinityitsolutions.com.br
+
+# Depois gerar novamente (ver passo 4)
 ```
 
-## 📝 Licença
+---
 
-MIT
+## 📄 Licença
+
+Proprietário - Todos os direitos reservados.
