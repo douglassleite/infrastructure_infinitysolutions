@@ -1,13 +1,5 @@
-# Upstream servers
-upstream backend {
-    server personal-trainer-backend:3001;
-    keepalive 32;
-}
-
-upstream frontend {
-    server personal-trainer-web:3000;
-    keepalive 32;
-}
+# Usar DNS interno do Docker para resolver nomes dinamicamente
+resolver 127.0.0.11 valid=30s ipv6=off;
 
 # Redirect HTTP to HTTPS
 server {
@@ -45,9 +37,10 @@ server {
     # HSTS
     add_header Strict-Transport-Security "max-age=63072000" always;
 
-    # Frontend (Next.js)
+    # Frontend (Next.js) - resolução dinâmica
     location / {
-        proxy_pass http://frontend;
+        set $frontend_upstream http://personal-trainer-web:3000;
+        proxy_pass $frontend_upstream;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -57,11 +50,13 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
         proxy_read_timeout 60s;
+        proxy_connect_timeout 10s;
     }
 
     # Next.js static files
     location /_next/static {
-        proxy_pass http://frontend;
+        set $frontend_static http://personal-trainer-web:3000;
+        proxy_pass $frontend_static;
         proxy_cache_valid 60m;
         add_header Cache-Control "public, immutable, max-age=31536000";
     }
@@ -98,9 +93,10 @@ server {
         return 204;
     }
 
-    # API endpoints
+    # API endpoints - resolução dinâmica
     location / {
-        proxy_pass http://backend;
+        set $backend_upstream http://personal-trainer-backend:3001;
+        proxy_pass $backend_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -108,14 +104,16 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 60s;
         proxy_send_timeout 60s;
+        proxy_connect_timeout 10s;
         
         # For file uploads
         client_max_body_size 50M;
     }
 
-    # WebSocket
+    # WebSocket - resolução dinâmica
     location /ws {
-        proxy_pass http://backend;
+        set $backend_ws http://personal-trainer-backend:3001;
+        proxy_pass $backend_ws;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -124,9 +122,10 @@ server {
         proxy_read_timeout 86400;
     }
 
-    # Health check
+    # Health check - resolução dinâmica
     location /health {
-        proxy_pass http://backend;
+        set $backend_health http://personal-trainer-backend:3001;
+        proxy_pass $backend_health;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
     }

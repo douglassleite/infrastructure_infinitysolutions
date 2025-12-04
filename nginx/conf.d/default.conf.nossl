@@ -1,37 +1,32 @@
 # Configuração temporária SEM SSL para gerar certificados
 # Após gerar os certificados, substitua por default.conf.ssl
 
-# Upstream servers
-upstream backend {
-    server personal-trainer-backend:3001;
-    keepalive 32;
-}
-
-upstream frontend {
-    server personal-trainer-web:3000;
-    keepalive 32;
-}
+# Usar DNS interno do Docker para resolver nomes dinamicamente
+resolver 127.0.0.11 valid=30s ipv6=off;
 
 # HTTP only - para Certbot e acesso inicial
 server {
     listen 80;
     server_name personalweb.infinityitsolutions.com.br personalapi.infinityitsolutions.com.br;
 
-    # Certbot challenge
+    # Certbot challenge - sempre funciona
     location /.well-known/acme-challenge/ {
         root /var/www/certbot;
     }
 
-    # Frontend
+    # API - personalapi.infinityitsolutions.com.br
     location / {
-        # Se for personalweb, proxy para frontend
-        # Se for personalapi, proxy para backend
-        set $upstream frontend;
+        # Resolve dinamicamente - permite nginx iniciar sem backend
+        set $backend_upstream http://personal-trainer-backend:3001;
+        set $frontend_upstream http://personal-trainer-web:3000;
+        
+        # Seleciona upstream baseado no host
+        set $target $frontend_upstream;
         if ($host = "personalapi.infinityitsolutions.com.br") {
-            set $upstream backend;
+            set $target $backend_upstream;
         }
         
-        proxy_pass http://$upstream;
+        proxy_pass $target;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -41,12 +36,14 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
         proxy_read_timeout 60s;
+        proxy_connect_timeout 10s;
         client_max_body_size 50M;
     }
 
     # WebSocket para API
     location /ws {
-        proxy_pass http://backend;
+        set $backend_ws http://personal-trainer-backend:3001;
+        proxy_pass $backend_ws;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -56,6 +53,7 @@ server {
 
     # Health check
     location /health {
-        proxy_pass http://backend;
+        set $backend_health http://personal-trainer-backend:3001;
+        proxy_pass $backend_health;
     }
 }
