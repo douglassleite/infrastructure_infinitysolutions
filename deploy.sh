@@ -102,16 +102,9 @@ fi
 print_success "Repositórios atualizados"
 
 # ===========================================
-# STEP 4: Create network
+# STEP 4: Start infrastructure
 # ===========================================
-print_step "Criando rede Docker..."
-docker network create app-network 2>/dev/null || true
-print_success "Rede app-network configurada"
-
-# ===========================================
-# STEP 5: Start infrastructure
-# ===========================================
-print_step "Iniciando infraestrutura (Postgres, Redis, Nginx)..."
+print_step "Iniciando infraestrutura (Postgres, Redis)..."
 cd $BASE_DIR/infrastructure
 
 if [ ! -f ".env" ]; then
@@ -120,15 +113,15 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
-docker-compose up -d postgres redis
-print_success "Postgres e Redis iniciados"
+docker compose up -d postgres redis
+print_success "Postgres e Redis iniciados (rede criada automaticamente)"
 
 # Wait for database
 print_step "Aguardando banco de dados..."
 sleep 10
 
 # ===========================================
-# STEP 6: Build and start backend
+# STEP 5: Build and start backend
 # ===========================================
 print_step "Construindo e iniciando backend..."
 cd $BASE_DIR/backend
@@ -140,29 +133,29 @@ if [ ! -f ".env" ]; then
 fi
 
 # Run migrations
-docker-compose -f docker-compose.prod.yml build
-docker-compose -f docker-compose.prod.yml run --rm backend npx prisma migrate deploy
-docker-compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml run --rm backend npx prisma migrate deploy
+docker compose -f docker-compose.prod.yml up -d
 
 print_success "Backend iniciado"
 
 # ===========================================
-# STEP 7: Build and start frontend
+# STEP 6: Build and start frontend
 # ===========================================
 print_step "Construindo e iniciando frontend..."
 cd $BASE_DIR/web
 
-docker-compose -f docker-compose.prod.yml build
-docker-compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d
 
 print_success "Frontend iniciado"
 
 # ===========================================
-# STEP 8: Start Nginx
+# STEP 7: Start Nginx
 # ===========================================
 print_step "Iniciando Nginx..."
 cd $BASE_DIR/infrastructure
-docker-compose up -d nginx
+docker compose up -d nginx
 
 print_success "Nginx iniciado"
 
@@ -179,7 +172,7 @@ echo "  - Website: https://personalweb.infinityitsolutions.com.br"
 echo "  - API: https://personalapi.infinityitsolutions.com.br"
 echo ""
 echo "Comandos úteis:"
-echo "  - Ver logs: docker-compose logs -f"
-echo "  - Reiniciar serviço: docker-compose restart <service>"
+echo "  - Ver logs: docker compose logs -f"
+echo "  - Reiniciar serviço: docker compose restart <service>"
 echo "  - Status: docker ps"
 echo ""

@@ -40,24 +40,20 @@ POSTGRES_DB=personal_trainer_db
 REDIS_PASSWORD=sua_senha_redis
 ```
 
-### 3. Crie a rede Docker
-
-```bash
-docker network create app-network
-```
-
-### 4. Inicie os serviços
+### 3. Inicie os serviços
 
 ```bash
 # Iniciar Postgres e Redis primeiro
-docker-compose up -d postgres redis
+docker compose up -d postgres redis
 
 # Aguarde 10 segundos
 sleep 10
 
 # Inicie o Nginx
-docker-compose up -d nginx
+docker compose up -d nginx
 ```
+
+> **Nota:** A rede `personal_trainer_infrastructure_app-network` será criada automaticamente.
 
 ## 🔒 Configurar SSL
 
