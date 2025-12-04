@@ -1,0 +1,16 @@
+# Configuração temporária para obter certificado SSL
+# Depois de obter o certificado, use o default.conf
+
+server {
+    listen 80;
+    server_name infinityitsolutions.com.br www.infinityitsolutions.com.br api.infinityitsolutions.com.br;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 200 'Server is running. SSL pending.';
+        add_header Content-Type text/plain;
+    }
+}
