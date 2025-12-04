@@ -1,0 +1,61 @@
+# Configuração temporária SEM SSL para gerar certificados
+# Após gerar os certificados, substitua por default.conf.ssl
+
+# Upstream servers
+upstream backend {
+    server personal-trainer-backend:3001;
+    keepalive 32;
+}
+
+upstream frontend {
+    server personal-trainer-web:3000;
+    keepalive 32;
+}
+
+# HTTP only - para Certbot e acesso inicial
+server {
+    listen 80;
+    server_name personalweb.infinityitsolutions.com.br personalapi.infinityitsolutions.com.br;
+
+    # Certbot challenge
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Frontend
+    location / {
+        # Se for personalweb, proxy para frontend
+        # Se for personalapi, proxy para backend
+        set $upstream frontend;
+        if ($host = "personalapi.infinityitsolutions.com.br") {
+            set $upstream backend;
+        }
+        
+        proxy_pass http://$upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 60s;
+        client_max_body_size 50M;
+    }
+
+    # WebSocket para API
+    location /ws {
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400;
+    }
+
+    # Health check
+    location /health {
+        proxy_pass http://backend;
+    }
+}
