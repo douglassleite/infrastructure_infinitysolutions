@@ -1,40 +1,5 @@
 services:
   # ===========================================
-  # Backend API
-  # ===========================================
-  backend:
-    build:
-      context: ../personal_trainer_backend
-      dockerfile: Dockerfile
-    image: personal-trainer-backend:latest
-    container_name: personal-trainer-backend
-    restart: always
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      DATABASE_URL: postgresql://${POSTGRES_USER:-personal_trainer}:${POSTGRES_PASSWORD:-your_secure_password_here}@postgres:5432/${POSTGRES_DB:-personal_trainer_db}?schema=public
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: ${REDIS_PASSWORD:-your_redis_password_here}
-      JWT_SECRET: ${JWT_SECRET:-your_jwt_secret_here}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your_jwt_refresh_secret_here}
-    ports:
-      - "3001:3001"
-    networks:
-      - app-network
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
-      interval: 30s
-      timeout: 10s
-      start_period: 40s
-      retries: 3
-
-  # ===========================================
   # NGINX Reverse Proxy
   # ===========================================
   nginx:
@@ -50,7 +15,7 @@ services:
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
     networks:
-      - app-network
+      - shared-network
     depends_on:
       - postgres
       - redis
@@ -81,9 +46,9 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
     ports:
-      - "5432:5432"  # Remova em produção se não precisar acesso externo
+      - "5432:5432"
     networks:
-      - app-network
+      - shared-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-personal_trainer}"]
       interval: 10s
@@ -101,9 +66,9 @@ services:
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"  # Remova em produção se não precisar acesso externo
+      - "6379:6379"
     networks:
-      - app-network
+      - shared-network
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-your_redis_password_here}", "ping"]
       interval: 10s
@@ -111,7 +76,8 @@ services:
       retries: 5
 
 networks:
-  app-network:
+  shared-network:
+    name: personal-trainer-network
     driver: bridge
 
 volumes:
