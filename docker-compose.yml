@@ -36,7 +36,7 @@ services:
   # ===========================================
   postgres:
     image: postgres:15-alpine
-    container_name: postgres-db
+    container_name: personal-postgres-db
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-personal_trainer}
@@ -60,13 +60,13 @@ services:
   # ===========================================
   redis:
     image: redis:7-alpine
-    container_name: redis-cache
+    container_name: personal-redis-cache
     restart: always
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-your_redis_password_here}
     volumes:
       - redis_data:/data
     ports:
-      - "6379:6379"
+      - "6378:6379"
     networks:
       - shared-network
     healthcheck:
