@@ -83,37 +83,37 @@ mkdir -p $PERSONAL_DIR/{backend,web}
 print_success "Diretórios criados em $ROOT_DIR"
 
 # ===========================================
-# STEP 3: Clone repositories
+# STEP 3: Clone repositories (usando SSH)
 # ===========================================
 print_step "Clonando repositórios..."
 
-# Site Institucional
+# Site Institucional (público - pode usar HTTPS)
 if [ -d "$WEBSITE_DIR/.git" ]; then
     cd $WEBSITE_DIR
     git pull origin master
 else
     cd $ROOT_DIR
-    git clone https://github.com/douglassleite/web_infinitysolutions.git website
+    git clone git@github.com:douglassleite/web_infinitysolutions.git website
 fi
 print_success "Site institucional atualizado"
 
-# Personal Trainer Backend
+# Personal Trainer Backend (privado - usa SSH)
 if [ -d "$PERSONAL_DIR/backend/.git" ]; then
     cd $PERSONAL_DIR/backend
     git pull origin main
 else
     cd $PERSONAL_DIR
-    git clone https://github.com/douglassleite/personal_trainer_backend.git backend
+    git clone git@github.com:douglassleite/personal_trainer_backend.git backend
 fi
 print_success "Backend Personal Trainer atualizado"
 
-# Personal Trainer Web
+# Personal Trainer Web (privado - usa SSH)
 if [ -d "$PERSONAL_DIR/web/.git" ]; then
     cd $PERSONAL_DIR/web
     git pull origin master
 else
     cd $PERSONAL_DIR
-    git clone https://github.com/douglassleite/personal_trainer_web.git web
+    git clone git@github.com:douglassleite/personal_trainer_web.git web
 fi
 print_success "Frontend Personal Trainer atualizado"
 
