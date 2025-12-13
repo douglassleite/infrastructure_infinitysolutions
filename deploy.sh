@@ -179,13 +179,31 @@ print_success "Frontend Personal Trainer atualizado"
 print_success "Repositórios atualizados"
 
 # ===========================================
-# STEP 4: Start infrastructure
+# STEP 4: Create networks and Start infrastructure
 # ===========================================
+print_step "Criando redes Docker..."
+
+# Criar rede principal se não existir
+if ! docker network inspect infinityitsolutions-network &> /dev/null; then
+    docker network create infinityitsolutions-network
+    print_success "Rede infinityitsolutions-network criada"
+else
+    print_success "Rede infinityitsolutions-network já existe"
+fi
+
+# Criar alias da rede antiga para compatibilidade com backend
+if ! docker network inspect personal_trainer_infrastructure_app-network &> /dev/null; then
+    docker network create personal_trainer_infrastructure_app-network
+    print_success "Rede de compatibilidade criada"
+else
+    print_success "Rede de compatibilidade já existe"
+fi
+
 print_step "Iniciando infraestrutura (Postgres, Redis)..."
 cd $INFRA_DIR
 
 docker compose up -d postgres redis
-print_success "Postgres e Redis iniciados (rede criada automaticamente)"
+print_success "Postgres e Redis iniciados"
 
 # Wait for database
 print_step "Aguardando banco de dados..."
