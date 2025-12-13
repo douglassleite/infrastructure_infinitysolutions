@@ -55,6 +55,7 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: infinity-postgres-db
+    hostname: postgres-db
     restart: always
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-infinityitsolutions}
@@ -66,7 +67,14 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - shared-network
+      shared-network:
+        aliases:
+          - postgres
+          - postgres-db
+      backend-network:
+        aliases:
+          - postgres
+          - postgres-db
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-infinityitsolutions}"]
       interval: 10s
@@ -79,6 +87,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: infinity-redis-cache
+    hostname: redis
     restart: always
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-Mga@2025}
     volumes:
@@ -86,7 +95,14 @@ services:
     ports:
       - "6378:6379"
     networks:
-      - shared-network
+      shared-network:
+        aliases:
+          - redis
+          - redis-cache
+      backend-network:
+        aliases:
+          - redis
+          - redis-cache
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-Mga@2025}", "ping"]
       interval: 10s
@@ -97,6 +113,9 @@ networks:
   shared-network:
     name: infinityitsolutions-network
     driver: bridge
+  backend-network:
+    name: personal_trainer_infrastructure_app-network
+    external: true
 
 volumes:
   postgres_data:
