@@ -313,13 +313,16 @@ print_step "Configurando Nginx..."
 cd $INFRA_DIR
 
 # Verificar se certificados SSL existem
-SSL_CERT_PATH="$INFRA_DIR/certbot/conf/live/www.infinityitsolutions.com.br/fullchain.pem"
+# Nota: Os certificados pertencem ao root, então usamos sudo para verificar
+SSL_CERT_DIR="$INFRA_DIR/certbot/conf/live/www.infinityitsolutions.com.br"
 
-if [ -f "$SSL_CERT_PATH" ]; then
+# Verificar se o diretório do certificado existe (usa sudo pois pertence ao root)
+if sudo test -d "$SSL_CERT_DIR" && sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
     print_success "Certificados SSL encontrados"
     # Usar configuração com SSL
     if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.ssl" ]; then
         cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
+        print_success "Configuração HTTPS aplicada"
     fi
 else
     print_warning "Certificados SSL não encontrados - usando configuração HTTP"
@@ -376,7 +379,7 @@ if [ ! -f "$SSL_CERT_PATH" ]; then
         --non-interactive || print_warning "Falha ao gerar certificado do personalapi"
     
     # Se certificados foram gerados, aplicar configuração SSL
-    if [ -f "$SSL_CERT_PATH" ]; then
+    if sudo test -d "$SSL_CERT_DIR" && sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
         print_success "Certificados SSL gerados!"
         if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.ssl" ]; then
             cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
