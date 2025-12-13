@@ -211,8 +211,12 @@ case "$1" in
         echo -e "${YELLOW}Gerando certificado para personalapi.infinityitsolutions.com.br...${NC}"
         $CERTBOT_CMD -d personalapi.infinityitsolutions.com.br
         
-        # Verificar se certificados foram gerados
-        if [ -d "certbot/conf/live/www.infinityitsolutions.com.br" ]; then
+        # Aguardar um pouco para o volume sincronizar
+        sleep 2
+        
+        # Verificar se certificados foram gerados (verificar diretório local)
+        if [ -d "certbot/conf/live/www.infinityitsolutions.com.br" ] || \
+           [ -f "certbot/conf/renewal/www.infinityitsolutions.com.br.conf" ]; then
             echo -e "${GREEN}✓ Certificados gerados com sucesso!${NC}"
             
             # Aplicar configuração SSL
@@ -220,10 +224,37 @@ case "$1" in
                 echo -e "${YELLOW}Aplicando configuração SSL...${NC}"
                 cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf
                 docker-compose restart nginx
+                sleep 2
                 echo -e "${GREEN}✓ HTTPS ativado!${NC}"
+                echo ""
+                echo -e "${GREEN}Sites disponíveis:${NC}"
+                echo -e "  - https://www.infinityitsolutions.com.br"
+                echo -e "  - https://personalweb.infinityitsolutions.com.br"
+                echo -e "  - https://personalapi.infinityitsolutions.com.br"
             fi
         else
-            echo -e "${RED}✗ Falha ao gerar certificados. Verifique os logs acima.${NC}"
+            echo -e "${YELLOW}! Certificados podem ter sido gerados no volume Docker.${NC}"
+            echo -e "${YELLOW}  Aplicando configuração SSL de qualquer forma...${NC}"
+            
+            if [ -f nginx/conf.d/default.conf.ssl ]; then
+                cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf
+                docker-compose restart nginx
+                sleep 2
+                
+                # Testar se nginx iniciou corretamente
+                if docker ps | grep -q nginx-proxy; then
+                    echo -e "${GREEN}✓ HTTPS ativado com sucesso!${NC}"
+                    echo ""
+                    echo -e "${GREEN}Sites disponíveis:${NC}"
+                    echo -e "  - https://www.infinityitsolutions.com.br"
+                    echo -e "  - https://personalweb.infinityitsolutions.com.br"
+                    echo -e "  - https://personalapi.infinityitsolutions.com.br"
+                else
+                    echo -e "${RED}✗ Nginx falhou ao iniciar. Voltando para HTTP...${NC}"
+                    cp nginx/conf.d/default.conf.nossl nginx/conf.d/default.conf
+                    docker-compose restart nginx
+                fi
+            fi
         fi
         ;;
     
