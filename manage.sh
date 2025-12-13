@@ -174,7 +174,7 @@ case "$1" in
         cd $INFRA_DIR
         
         # Criar diretórios necessários
-        mkdir -p certbot/conf certbot/www
+        mkdir -p certbot/conf certbot/www/.well-known/acme-challenge
         
         # Reiniciar nginx para garantir que está usando config HTTP
         echo -e "${YELLOW}Verificando configuração HTTP...${NC}"
@@ -191,33 +191,25 @@ case "$1" in
             sleep 5
         fi
         
-        echo -e "${YELLOW}Gerando certificado para www.infinityitsolutions.com.br...${NC}"
-        docker-compose run --rm certbot certonly --webroot \
+        # Usar docker run diretamente (evita entrypoint customizado do docker-compose)
+        CERTBOT_CMD="docker run --rm \
+            -v $INFRA_DIR/certbot/conf:/etc/letsencrypt \
+            -v $INFRA_DIR/certbot/www:/var/www/certbot \
+            certbot/certbot certonly --webroot \
             -w /var/www/certbot \
-            -d www.infinityitsolutions.com.br \
-            -d infinityitsolutions.com.br \
             --email contato@infinityitsolutions.com.br \
             --agree-tos \
             --no-eff-email \
-            --non-interactive
+            --non-interactive"
+        
+        echo -e "${YELLOW}Gerando certificado para www.infinityitsolutions.com.br...${NC}"
+        $CERTBOT_CMD -d www.infinityitsolutions.com.br -d infinityitsolutions.com.br
         
         echo -e "${YELLOW}Gerando certificado para personalweb.infinityitsolutions.com.br...${NC}"
-        docker-compose run --rm certbot certonly --webroot \
-            -w /var/www/certbot \
-            -d personalweb.infinityitsolutions.com.br \
-            --email contato@infinityitsolutions.com.br \
-            --agree-tos \
-            --no-eff-email \
-            --non-interactive
+        $CERTBOT_CMD -d personalweb.infinityitsolutions.com.br
         
         echo -e "${YELLOW}Gerando certificado para personalapi.infinityitsolutions.com.br...${NC}"
-        docker-compose run --rm certbot certonly --webroot \
-            -w /var/www/certbot \
-            -d personalapi.infinityitsolutions.com.br \
-            --email contato@infinityitsolutions.com.br \
-            --agree-tos \
-            --no-eff-email \
-            --non-interactive
+        $CERTBOT_CMD -d personalapi.infinityitsolutions.com.br
         
         # Verificar se certificados foram gerados
         if [ -d "certbot/conf/live/www.infinityitsolutions.com.br" ]; then
@@ -236,11 +228,14 @@ case "$1" in
         ;;
     
     ssl-renew)
-        echo -e "${BLUE}Renovando certificado SSL...${NC}"
+        echo -e "${BLUE}Renovando certificados SSL...${NC}"
         cd $INFRA_DIR
-        docker-compose run --rm certbot renew
+        docker run --rm \
+            -v $INFRA_DIR/certbot/conf:/etc/letsencrypt \
+            -v $INFRA_DIR/certbot/www:/var/www/certbot \
+            certbot/certbot renew
         docker-compose restart nginx
-        echo -e "${GREEN}Certificado renovado${NC}"
+        echo -e "${GREEN}Certificados renovados${NC}"
         ;;
     
     ssl-status)
