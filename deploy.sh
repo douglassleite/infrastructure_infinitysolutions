@@ -138,8 +138,13 @@ else
     print_success ".env da infraestrutura já existe"
 fi
 
-# Carregar variáveis do .env
+# Carregar variáveis do .env e exportar
+set -a  # Exportar todas as variáveis automaticamente
 source "$INFRA_DIR/.env"
+set +a
+
+# Debug: mostrar que variáveis foram carregadas
+print_success "Variáveis carregadas: POSTGRES_USER=$POSTGRES_USER, POSTGRES_DB=$POSTGRES_DB"
 
 # ===========================================
 # STEP 3: Clone repositories (usando SSH)
