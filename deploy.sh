@@ -294,22 +294,95 @@ docker compose -f docker-compose.prod.yml up -d
 print_success "Frontend Personal Trainer iniciado"
 
 # ===========================================
-# STEP 7: Start Nginx (Reverse Proxy)
-# ===========================================
-print_step "Iniciando Nginx (Reverse Proxy)..."
-cd $INFRA_DIR
-docker compose up -d nginx
-
-print_success "Nginx iniciado"
-
-# ===========================================
-# STEP 8: Start Infinity Website (Site Institucional)
+# STEP 7: Start Infinity Website (Site Institucional)
 # ===========================================
 print_step "Construindo e iniciando site institucional..."
 cd $INFRA_DIR
 docker compose up -d --build infinity-website
 
-print_success "Site institucional iniciado (www.infinityitsolutions.com.br)"
+print_success "Site institucional iniciado"
+
+# ===========================================
+# STEP 8: Start Nginx (Reverse Proxy) com SSL automático
+# ===========================================
+print_step "Configurando Nginx..."
+cd $INFRA_DIR
+
+# Verificar se certificados SSL existem
+SSL_CERT_PATH="$INFRA_DIR/certbot/conf/live/www.infinityitsolutions.com.br/fullchain.pem"
+
+if [ -f "$SSL_CERT_PATH" ]; then
+    print_success "Certificados SSL encontrados"
+    # Usar configuração com SSL
+    if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.ssl" ]; then
+        cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
+    fi
+else
+    print_warning "Certificados SSL não encontrados - usando configuração HTTP"
+    # Usar configuração sem SSL para permitir geração de certificados
+    if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.nossl" ]; then
+        cp "$INFRA_DIR/nginx/conf.d/default.conf.nossl" "$INFRA_DIR/nginx/conf.d/default.conf"
+        print_success "Configuração HTTP aplicada"
+    fi
+fi
+
+# Iniciar nginx
+docker compose up -d nginx
+
+# Aguardar nginx iniciar
+sleep 3
+
+# Verificar se nginx está rodando
+if docker ps | grep -q nginx-proxy; then
+    print_success "Nginx iniciado"
+else
+    print_error "Nginx não iniciou corretamente. Verifique: docker logs nginx-proxy"
+fi
+
+# Se não tem SSL, tentar gerar certificados automaticamente
+if [ ! -f "$SSL_CERT_PATH" ]; then
+    print_step "Gerando certificados SSL..."
+    
+    # Gerar certificado para o site principal
+    docker compose run --rm certbot certonly --webroot \
+        -w /var/www/certbot \
+        -d www.infinityitsolutions.com.br \
+        -d infinityitsolutions.com.br \
+        --email contato@infinityitsolutions.com.br \
+        --agree-tos \
+        --no-eff-email \
+        --non-interactive || print_warning "Falha ao gerar certificado do site principal (DNS pode não estar configurado)"
+    
+    # Gerar certificado para personalweb
+    docker compose run --rm certbot certonly --webroot \
+        -w /var/www/certbot \
+        -d personalweb.infinityitsolutions.com.br \
+        --email contato@infinityitsolutions.com.br \
+        --agree-tos \
+        --no-eff-email \
+        --non-interactive || print_warning "Falha ao gerar certificado do personalweb"
+    
+    # Gerar certificado para personalapi
+    docker compose run --rm certbot certonly --webroot \
+        -w /var/www/certbot \
+        -d personalapi.infinityitsolutions.com.br \
+        --email contato@infinityitsolutions.com.br \
+        --agree-tos \
+        --no-eff-email \
+        --non-interactive || print_warning "Falha ao gerar certificado do personalapi"
+    
+    # Se certificados foram gerados, aplicar configuração SSL
+    if [ -f "$SSL_CERT_PATH" ]; then
+        print_success "Certificados SSL gerados!"
+        if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.ssl" ]; then
+            cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
+            docker compose restart nginx
+            print_success "Configuração HTTPS aplicada"
+        fi
+    else
+        print_warning "Certificados não gerados. Configure o DNS e rode: ./manage.sh ssl-init"
+    fi
+fi
 
 # ===========================================
 # DONE
