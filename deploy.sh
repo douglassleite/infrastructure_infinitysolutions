@@ -1,7 +1,11 @@
 #!/bin/bash
 
 # ===========================================
-# Script de Deploy - Personal Trainer
+# Script de Deploy - Infinity IT Solutions
+# ===========================================
+# Infraestrutura completa incluindo:
+# - Site institucional (www.infinityitsolutions.com.br)
+# - Personal Trainer App (personalweb/personalapi)
 # ===========================================
 
 set -e
@@ -64,40 +68,54 @@ fi
 # ===========================================
 print_step "Criando estrutura de diretórios..."
 
-BASE_DIR="/opt/personal-trainer"
-mkdir -p $BASE_DIR/{infrastructure,backend,web}
-mkdir -p $BASE_DIR/infrastructure/{nginx/conf.d,certbot/conf,certbot/www,init-scripts}
+# Diretório raiz da Infinity IT Solutions
+ROOT_DIR="/opt/infinityitsolutions"
 
-print_success "Diretórios criados em $BASE_DIR"
+# Subdiretórios
+INFRA_DIR="$ROOT_DIR/infrastructure"
+WEBSITE_DIR="$ROOT_DIR/website"
+PERSONAL_DIR="$ROOT_DIR/apps/personal-trainer"
+
+mkdir -p $INFRA_DIR/{nginx/conf.d,certbot/conf,certbot/www,init-scripts}
+mkdir -p $WEBSITE_DIR
+mkdir -p $PERSONAL_DIR/{backend,web}
+
+print_success "Diretórios criados em $ROOT_DIR"
 
 # ===========================================
 # STEP 3: Clone repositories
 # ===========================================
 print_step "Clonando repositórios..."
 
-cd $BASE_DIR
-
-# Infrastructure (se ainda não existir)
-if [ ! -d "$BASE_DIR/infrastructure/.git" ]; then
-    # Se você tiver um repo de infrastructure, clone aqui
-    print_warning "Configure manualmente os arquivos de infrastructure"
-fi
-
-# Backend
-if [ -d "$BASE_DIR/backend/.git" ]; then
-    cd $BASE_DIR/backend
-    git pull origin main
-else
-    git clone https://github.com/douglassleite/personal_trainer_backend.git backend
-fi
-
-# Web
-if [ -d "$BASE_DIR/web/.git" ]; then
-    cd $BASE_DIR/web
+# Site Institucional
+if [ -d "$WEBSITE_DIR/.git" ]; then
+    cd $WEBSITE_DIR
     git pull origin master
 else
+    cd $ROOT_DIR
+    git clone https://github.com/douglassleite/web_infinitysolutions.git website
+fi
+print_success "Site institucional atualizado"
+
+# Personal Trainer Backend
+if [ -d "$PERSONAL_DIR/backend/.git" ]; then
+    cd $PERSONAL_DIR/backend
+    git pull origin main
+else
+    cd $PERSONAL_DIR
+    git clone https://github.com/douglassleite/personal_trainer_backend.git backend
+fi
+print_success "Backend Personal Trainer atualizado"
+
+# Personal Trainer Web
+if [ -d "$PERSONAL_DIR/web/.git" ]; then
+    cd $PERSONAL_DIR/web
+    git pull origin master
+else
+    cd $PERSONAL_DIR
     git clone https://github.com/douglassleite/personal_trainer_web.git web
 fi
+print_success "Frontend Personal Trainer atualizado"
 
 print_success "Repositórios atualizados"
 
@@ -105,7 +123,7 @@ print_success "Repositórios atualizados"
 # STEP 4: Start infrastructure
 # ===========================================
 print_step "Iniciando infraestrutura (Postgres, Redis)..."
-cd $BASE_DIR/infrastructure
+cd $INFRA_DIR
 
 if [ ! -f ".env" ]; then
     print_error "Arquivo .env não encontrado em infrastructure/"
@@ -121,10 +139,10 @@ print_step "Aguardando banco de dados..."
 sleep 10
 
 # ===========================================
-# STEP 5: Build and start backend
+# STEP 5: Build and start backend (Personal Trainer)
 # ===========================================
-print_step "Construindo e iniciando backend..."
-cd $BASE_DIR/backend
+print_step "Construindo e iniciando backend Personal Trainer..."
+cd $PERSONAL_DIR/backend
 
 if [ ! -f ".env" ]; then
     print_error "Arquivo .env não encontrado em backend/"
@@ -140,24 +158,33 @@ docker compose -f docker-compose.prod.yml up -d
 print_success "Backend iniciado"
 
 # ===========================================
-# STEP 6: Build and start frontend
+# STEP 6: Build and start frontend (Personal Trainer)
 # ===========================================
-print_step "Construindo e iniciando frontend..."
-cd $BASE_DIR/web
+print_step "Construindo e iniciando frontend Personal Trainer..."
+cd $PERSONAL_DIR/web
 
 docker compose -f docker-compose.prod.yml build
 docker compose -f docker-compose.prod.yml up -d
 
-print_success "Frontend iniciado"
+print_success "Frontend Personal Trainer iniciado"
 
 # ===========================================
-# STEP 7: Start Nginx
+# STEP 7: Start Nginx (Reverse Proxy)
 # ===========================================
-print_step "Iniciando Nginx..."
-cd $BASE_DIR/infrastructure
+print_step "Iniciando Nginx (Reverse Proxy)..."
+cd $INFRA_DIR
 docker compose up -d nginx
 
 print_success "Nginx iniciado"
+
+# ===========================================
+# STEP 8: Start Infinity Website (Site Institucional)
+# ===========================================
+print_step "Construindo e iniciando site institucional..."
+cd $INFRA_DIR
+docker compose up -d --build infinity-website
+
+print_success "Site institucional iniciado (www.infinityitsolutions.com.br)"
 
 # ===========================================
 # DONE
@@ -168,8 +195,9 @@ echo -e "${GREEN}  Deploy concluído com sucesso!${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 echo "URLs:"
-echo "  - Website: https://personalweb.infinityitsolutions.com.br"
-echo "  - API: https://personalapi.infinityitsolutions.com.br"
+echo "  - Site Principal: https://www.infinityitsolutions.com.br"
+echo "  - Personal Web: https://personalweb.infinityitsolutions.com.br"
+echo "  - Personal API: https://personalapi.infinityitsolutions.com.br"
 echo ""
 echo "Comandos úteis:"
 echo "  - Ver logs: docker compose logs -f"

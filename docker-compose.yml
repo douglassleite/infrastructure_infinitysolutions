@@ -1,5 +1,22 @@
 services:
   # ===========================================
+  # Site Principal - www.infinityitsolutions.com.br
+  # ===========================================
+  infinity-website:
+    build:
+      context: ${WEBSITE_PATH:-../website}
+      dockerfile: Dockerfile
+    container_name: infinity-website
+    restart: always
+    networks:
+      - shared-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================
   # NGINX Reverse Proxy
   # ===========================================
   nginx:
@@ -17,6 +34,7 @@ services:
     networks:
       - shared-network
     depends_on:
+      - infinity-website
       - postgres
       - redis
 
@@ -36,12 +54,12 @@ services:
   # ===========================================
   postgres:
     image: postgres:15-alpine
-    container_name: personal-postgres-db
+    container_name: infinity-postgres-db
     restart: always
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-personal_trainer}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-your_secure_password_here}
-      POSTGRES_DB: ${POSTGRES_DB:-personal_trainer_db}
+      POSTGRES_USER: ${POSTGRES_USER:-infinitysolutions}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-Mga@2025}
+      POSTGRES_DB: ${POSTGRES_DB:-infinitysolutions_db}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d
@@ -50,7 +68,7 @@ services:
     networks:
       - shared-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-personal_trainer}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-infinitysolutions}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -60,9 +78,9 @@ services:
   # ===========================================
   redis:
     image: redis:7-alpine
-    container_name: personal-redis-cache
+    container_name: infinity-redis-cache
     restart: always
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-your_redis_password_here}
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-Mga@2025}
     volumes:
       - redis_data:/data
     ports:
@@ -70,14 +88,14 @@ services:
     networks:
       - shared-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-your_redis_password_here}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-Mga@2025}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
 networks:
   shared-network:
-    name: personal-trainer-network
+    name: infinity-trainer-network
     driver: bridge
 
 volumes:
