@@ -71,19 +71,19 @@ fi
 # ===========================================
 print_step "Criando estrutura de diretórios..."
 
-# Diretório raiz da Infinity IT Solutions
-ROOT_DIR="/opt/infinityitsolutions"
+# Diretório raiz baseado na localização do script
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# Subdiretórios
-INFRA_DIR="$ROOT_DIR/infrastructure"
+# Subdiretórios (relativos ao diretório do usuário)
+INFRA_DIR="$SCRIPT_DIR"
 WEBSITE_DIR="$ROOT_DIR/website"
 PERSONAL_DIR="$ROOT_DIR/apps/personal-trainer"
 
-# Criar diretórios com sudo e dar permissão ao usuário atual
-sudo mkdir -p $INFRA_DIR/{nginx/conf.d,certbot/conf,certbot/www,init-scripts}
-sudo mkdir -p $WEBSITE_DIR
-sudo mkdir -p $PERSONAL_DIR/{backend,web}
-sudo chown -R $USER:$USER $ROOT_DIR
+# Criar diretórios
+mkdir -p $INFRA_DIR/{nginx/conf.d,certbot/conf,certbot/www,init-scripts}
+mkdir -p $WEBSITE_DIR
+mkdir -p $PERSONAL_DIR/{backend,web}
 
 print_success "Diretórios criados em $ROOT_DIR"
 
