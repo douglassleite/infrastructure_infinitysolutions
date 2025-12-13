@@ -101,37 +101,31 @@ print_step "Verificando arquivos de configuração..."
 
 # Gerar senhas se não existirem
 if [ ! -f "$INFRA_DIR/.env" ]; then
-    print_warning "Criando .env da infraestrutura com senhas geradas..."
+    print_warning "Criando .env da infraestrutura..."
     
-    POSTGRES_PASSWORD=$(generate_password)
-    REDIS_PASSWORD=$(generate_password)
-    JWT_SECRET=$(generate_password)
-    JWT_REFRESH_SECRET=$(generate_password)
-    
+    # Usar senhas fixas conforme definido no docker-compose.yml
     cat > "$INFRA_DIR/.env" << EOF
 # ===========================================
 # Infinity IT Solutions - Variáveis de Ambiente
 # ===========================================
-# GERADO AUTOMATICAMENTE - Guarde essas senhas!
 
 # PostgreSQL
-POSTGRES_USER=personal_trainer
-POSTGRES_PASSWORD=$POSTGRES_PASSWORD
-POSTGRES_DB=personal_trainer_db
+POSTGRES_USER=infinityitsolutions
+POSTGRES_PASSWORD=Mga@2025
+POSTGRES_DB=infinitysolutions_db
 
 # Redis
-REDIS_PASSWORD=$REDIS_PASSWORD
+REDIS_PASSWORD=Mga@2025
 
-# JWT
-JWT_SECRET=$JWT_SECRET
-JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET
+# JWT (geradas automaticamente)
+JWT_SECRET=$(generate_password)
+JWT_REFRESH_SECRET=$(generate_password)
 
 # Website Path
 WEBSITE_PATH=../website
 EOF
     
     print_success ".env da infraestrutura criado"
-    print_warning "IMPORTANTE: Guarde as senhas do arquivo $INFRA_DIR/.env"
 else
     # Carregar variáveis existentes
     source "$INFRA_DIR/.env"
