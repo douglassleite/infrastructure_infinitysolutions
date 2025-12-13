@@ -109,10 +109,15 @@ if [ ! -f "$INFRA_DIR/.env" ]; then
 # Infinity IT Solutions - Variáveis de Ambiente
 # ===========================================
 
-# PostgreSQL
+# PostgreSQL (usuário admin)
 POSTGRES_USER=infinityitsolutions
 POSTGRES_PASSWORD=Mga@2025
 POSTGRES_DB=infinitysolutions_db
+
+# Personal Trainer Database
+PERSONAL_TRAINER_DB=personal_trainer_db
+PERSONAL_TRAINER_USER=personal_trainer
+PERSONAL_TRAINER_PASSWORD=Mga@2025
 
 # Redis
 REDIS_PASSWORD=Mga@2025
@@ -235,7 +240,7 @@ NODE_ENV=production
 PORT=3000
 
 # Database (usando alias postgres-db da rede)
-DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?schema=public"
+DATABASE_URL="postgresql://\${PERSONAL_TRAINER_USER:-\${POSTGRES_USER}}:\${PERSONAL_TRAINER_PASSWORD:-\${POSTGRES_PASSWORD}}@postgres-db:5432/\${PERSONAL_TRAINER_DB:-personal_trainer_db}?schema=public"
 
 # Redis
 REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379"
