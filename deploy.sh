@@ -146,10 +146,10 @@ source "$INFRA_DIR/.env"
 # ===========================================
 print_step "Clonando repositórios..."
 
-# Site Institucional (público - pode usar HTTPS)
+# Site Institucional
 if [ -d "$WEBSITE_DIR/.git" ]; then
     cd $WEBSITE_DIR
-    git pull origin master
+    git pull
 else
     cd $ROOT_DIR
     git clone git@github.com:douglassleite/web_infinitysolutions.git website
@@ -159,7 +159,7 @@ print_success "Site institucional atualizado"
 # Personal Trainer Backend (privado - usa SSH)
 if [ -d "$PERSONAL_DIR/backend/.git" ]; then
     cd $PERSONAL_DIR/backend
-    git pull origin main
+    git pull
 else
     cd $PERSONAL_DIR
     git clone git@github.com:douglassleite/personal_trainer_backend.git backend
@@ -169,7 +169,7 @@ print_success "Backend Personal Trainer atualizado"
 # Personal Trainer Web (privado - usa SSH)
 if [ -d "$PERSONAL_DIR/web/.git" ]; then
     cd $PERSONAL_DIR/web
-    git pull origin master
+    git pull
 else
     cd $PERSONAL_DIR
     git clone git@github.com:douglassleite/personal_trainer_web.git web
