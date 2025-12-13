@@ -112,7 +112,7 @@ services:
 networks:
   shared-network:
     name: infinityitsolutions-network
-    driver: bridge
+    external: true
   backend-network:
     name: personal_trainer_infrastructure_app-network
     external: true
