@@ -196,12 +196,20 @@ else
     print_success "Rede infinityitsolutions-network já existe"
 fi
 
-# Criar alias da rede antiga para compatibilidade com backend
+# Criar rede para compatibilidade com backend
 if ! docker network inspect personal_trainer_infrastructure_app-network &> /dev/null; then
     docker network create personal_trainer_infrastructure_app-network
-    print_success "Rede de compatibilidade criada"
+    print_success "Rede backend criada"
 else
-    print_success "Rede de compatibilidade já existe"
+    print_success "Rede backend já existe"
+fi
+
+# Criar rede para compatibilidade com frontend
+if ! docker network inspect personal-trainer-network &> /dev/null; then
+    docker network create personal-trainer-network
+    print_success "Rede frontend criada"
+else
+    print_success "Rede frontend já existe"
 fi
 
 print_step "Iniciando infraestrutura (Postgres, Redis)..."
