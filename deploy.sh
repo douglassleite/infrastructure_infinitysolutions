@@ -88,6 +88,60 @@ mkdir -p $PERSONAL_DIR/{backend,web}
 print_success "Diretórios criados em $ROOT_DIR"
 
 # ===========================================
+# Função para gerar senha aleatória
+# ===========================================
+generate_password() {
+    openssl rand -base64 32 | tr -dc 'a-zA-Z0-9' | head -c 32
+}
+
+# ===========================================
+# STEP 2.5: Create .env files if not exist
+# ===========================================
+print_step "Verificando arquivos de configuração..."
+
+# Gerar senhas se não existirem
+if [ ! -f "$INFRA_DIR/.env" ]; then
+    print_warning "Criando .env da infraestrutura com senhas geradas..."
+    
+    POSTGRES_PASSWORD=$(generate_password)
+    REDIS_PASSWORD=$(generate_password)
+    JWT_SECRET=$(generate_password)
+    JWT_REFRESH_SECRET=$(generate_password)
+    
+    cat > "$INFRA_DIR/.env" << EOF
+# ===========================================
+# Infinity IT Solutions - Variáveis de Ambiente
+# ===========================================
+# GERADO AUTOMATICAMENTE - Guarde essas senhas!
+
+# PostgreSQL
+POSTGRES_USER=personal_trainer
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+POSTGRES_DB=personal_trainer_db
+
+# Redis
+REDIS_PASSWORD=$REDIS_PASSWORD
+
+# JWT
+JWT_SECRET=$JWT_SECRET
+JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET
+
+# Website Path
+WEBSITE_PATH=../website
+EOF
+    
+    print_success ".env da infraestrutura criado"
+    print_warning "IMPORTANTE: Guarde as senhas do arquivo $INFRA_DIR/.env"
+else
+    # Carregar variáveis existentes
+    source "$INFRA_DIR/.env"
+    print_success ".env da infraestrutura já existe"
+fi
+
+# Carregar variáveis do .env
+source "$INFRA_DIR/.env"
+
+# ===========================================
 # STEP 3: Clone repositories (usando SSH)
 # ===========================================
 print_step "Clonando repositórios..."
@@ -130,12 +184,6 @@ print_success "Repositórios atualizados"
 print_step "Iniciando infraestrutura (Postgres, Redis)..."
 cd $INFRA_DIR
 
-if [ ! -f ".env" ]; then
-    print_error "Arquivo .env não encontrado em infrastructure/"
-    print_warning "Copie .env.example para .env e configure as variáveis"
-    exit 1
-fi
-
 docker compose up -d postgres redis
 print_success "Postgres e Redis iniciados (rede criada automaticamente)"
 
@@ -149,10 +197,36 @@ sleep 10
 print_step "Construindo e iniciando backend Personal Trainer..."
 cd $PERSONAL_DIR/backend
 
+# Criar .env do backend se não existir
 if [ ! -f ".env" ]; then
-    print_error "Arquivo .env não encontrado em backend/"
-    print_warning "Copie .env.production.example para .env e configure as variáveis"
-    exit 1
+    print_warning "Criando .env do backend..."
+    
+    cat > ".env" << EOF
+# ===========================================
+# Personal Trainer Backend - Variáveis de Ambiente
+# ===========================================
+# GERADO AUTOMATICAMENTE
+
+NODE_ENV=production
+PORT=3000
+
+# Database
+DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public"
+
+# Redis
+REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379"
+
+# JWT
+JWT_SECRET=${JWT_SECRET}
+JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+
+# CORS
+CORS_ORIGIN=https://personalweb.infinityitsolutions.com.br
+EOF
+    
+    print_success ".env do backend criado"
 fi
 
 # Run migrations
@@ -167,6 +241,23 @@ print_success "Backend iniciado"
 # ===========================================
 print_step "Construindo e iniciando frontend Personal Trainer..."
 cd $PERSONAL_DIR/web
+
+# Criar .env do frontend se não existir
+if [ ! -f ".env" ]; then
+    print_warning "Criando .env do frontend..."
+    
+    cat > ".env" << EOF
+# ===========================================
+# Personal Trainer Frontend - Variáveis de Ambiente
+# ===========================================
+# GERADO AUTOMATICAMENTE
+
+VITE_API_URL=https://personalapi.infinityitsolutions.com.br
+VITE_APP_NAME=Personal Trainer
+EOF
+    
+    print_success ".env do frontend criado"
+fi
 
 docker compose -f docker-compose.prod.yml build
 docker compose -f docker-compose.prod.yml up -d
@@ -204,8 +295,19 @@ echo "  - Site Principal: https://www.infinityitsolutions.com.br"
 echo "  - Personal Web: https://personalweb.infinityitsolutions.com.br"
 echo "  - Personal API: https://personalapi.infinityitsolutions.com.br"
 echo ""
+echo "Arquivos de configuração:"
+echo "  - Infraestrutura: $INFRA_DIR/.env"
+echo "  - Backend: $PERSONAL_DIR/backend/.env"
+echo "  - Frontend: $PERSONAL_DIR/web/.env"
+echo ""
+echo -e "${YELLOW}IMPORTANTE: As senhas foram geradas automaticamente.${NC}"
+echo -e "${YELLOW}Verifique o arquivo $INFRA_DIR/.env para ver as credenciais.${NC}"
+echo ""
 echo "Comandos úteis:"
-echo "  - Ver logs: docker compose logs -f"
-echo "  - Reiniciar serviço: docker compose restart <service>"
-echo "  - Status: docker ps"
+echo "  - Ver logs: ./manage.sh logs"
+echo "  - Status: ./manage.sh status"
+echo "  - Gerar SSL: ./manage.sh ssl-init"
+echo ""
+echo "Próximo passo: Configure o DNS e gere os certificados SSL com:"
+echo "  ./manage.sh ssl-init"
 echo ""
