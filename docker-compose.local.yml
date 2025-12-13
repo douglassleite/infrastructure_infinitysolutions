@@ -1,0 +1,51 @@
+# ===========================================
+# Docker Compose - Desenvolvimento Local
+# ===========================================
+# Apenas PostgreSQL e Redis para desenvolvimento
+# Uso: docker compose -f docker-compose.local.yml up -d
+# ===========================================
+
+services:
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-infinityitsolutions}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localdev123}
+      POSTGRES_DB: ${POSTGRES_DB:-infinitysolutions_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_local_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-infinityitsolutions}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Redis Cache
+  # ===========================================
+  redis:
+    image: redis:7-alpine
+    container_name: redis-local
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_local_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_local_data:
+  redis_local_data:
