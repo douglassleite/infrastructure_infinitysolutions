@@ -172,30 +172,67 @@ case "$1" in
     ssl-init)
         echo -e "${BLUE}Gerando certificados SSL...${NC}"
         cd $INFRA_DIR
-        # Site institucional
+        
+        # Criar diretórios necessários
+        mkdir -p certbot/conf certbot/www
+        
+        # Reiniciar nginx para garantir que está usando config HTTP
+        echo -e "${YELLOW}Verificando configuração HTTP...${NC}"
+        if [ -f nginx/conf.d/default.conf.nossl ]; then
+            cp nginx/conf.d/default.conf.nossl nginx/conf.d/default.conf
+            docker-compose restart nginx
+            sleep 3
+        fi
+        
+        # Verificar se nginx está rodando
+        if ! docker ps | grep -q nginx-proxy; then
+            echo -e "${RED}Nginx não está rodando. Iniciando...${NC}"
+            docker-compose up -d nginx
+            sleep 5
+        fi
+        
+        echo -e "${YELLOW}Gerando certificado para www.infinityitsolutions.com.br...${NC}"
         docker-compose run --rm certbot certonly --webroot \
             -w /var/www/certbot \
             -d www.infinityitsolutions.com.br \
             -d infinityitsolutions.com.br \
             --email contato@infinityitsolutions.com.br \
             --agree-tos \
-            --no-eff-email
-        # Personal Web
+            --no-eff-email \
+            --non-interactive
+        
+        echo -e "${YELLOW}Gerando certificado para personalweb.infinityitsolutions.com.br...${NC}"
         docker-compose run --rm certbot certonly --webroot \
             -w /var/www/certbot \
             -d personalweb.infinityitsolutions.com.br \
             --email contato@infinityitsolutions.com.br \
             --agree-tos \
-            --no-eff-email
-        # Personal API
+            --no-eff-email \
+            --non-interactive
+        
+        echo -e "${YELLOW}Gerando certificado para personalapi.infinityitsolutions.com.br...${NC}"
         docker-compose run --rm certbot certonly --webroot \
             -w /var/www/certbot \
             -d personalapi.infinityitsolutions.com.br \
             --email contato@infinityitsolutions.com.br \
             --agree-tos \
-            --no-eff-email
-        docker-compose restart nginx
-        echo -e "${GREEN}Certificados gerados!${NC}"
+            --no-eff-email \
+            --non-interactive
+        
+        # Verificar se certificados foram gerados
+        if [ -d "certbot/conf/live/www.infinityitsolutions.com.br" ]; then
+            echo -e "${GREEN}✓ Certificados gerados com sucesso!${NC}"
+            
+            # Aplicar configuração SSL
+            if [ -f nginx/conf.d/default.conf.ssl ]; then
+                echo -e "${YELLOW}Aplicando configuração SSL...${NC}"
+                cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf
+                docker-compose restart nginx
+                echo -e "${GREEN}✓ HTTPS ativado!${NC}"
+            fi
+        else
+            echo -e "${RED}✗ Falha ao gerar certificados. Verifique os logs acima.${NC}"
+        fi
         ;;
     
     ssl-renew)
