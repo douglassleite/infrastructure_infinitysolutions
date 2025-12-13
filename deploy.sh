@@ -215,21 +215,20 @@ sleep 10
 print_step "Construindo e iniciando backend Personal Trainer..."
 cd $PERSONAL_DIR/backend
 
-# Criar .env do backend se não existir
-if [ ! -f ".env" ]; then
-    print_warning "Criando .env do backend..."
-    
-    cat > ".env" << EOF
+# Criar/Atualizar .env do backend
+print_warning "Criando .env do backend..."
+
+cat > ".env" << EOF
 # ===========================================
 # Personal Trainer Backend - Variáveis de Ambiente
 # ===========================================
-# GERADO AUTOMATICAMENTE
+# GERADO AUTOMATICAMENTE EM $(date)
 
 NODE_ENV=production
 PORT=3000
 
-# Database
-DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public"
+# Database (usando alias postgres-db da rede)
+DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres-db:5432/${POSTGRES_DB}?schema=public"
 
 # Redis
 REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379"
@@ -243,9 +242,8 @@ JWT_REFRESH_EXPIRES_IN=7d
 # CORS
 CORS_ORIGIN=https://personalweb.infinityitsolutions.com.br
 EOF
-    
-    print_success ".env do backend criado"
-fi
+
+print_success ".env do backend criado"
 
 # Run migrations
 docker compose -f docker-compose.prod.yml build
