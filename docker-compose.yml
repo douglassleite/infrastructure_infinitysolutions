@@ -95,7 +95,7 @@ services:
 
 networks:
   shared-network:
-    name: infinity-trainer-network
+    name: infinityitsolutions-network
     driver: bridge
 
 volumes:
