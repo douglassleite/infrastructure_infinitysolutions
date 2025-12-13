@@ -33,31 +33,34 @@ print_error() {
     echo -e "${RED}✗${NC} $1"
 }
 
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-    print_error "Execute como root: sudo ./deploy.sh"
-    exit 1
-fi
-
 # ===========================================
 # STEP 1: Install Docker if not present
 # ===========================================
 print_step "Verificando Docker..."
 if ! command -v docker &> /dev/null; then
     print_warning "Docker não encontrado. Instalando..."
-    curl -fsSL https://get.docker.com | sh
-    systemctl enable docker
-    systemctl start docker
+    curl -fsSL https://get.docker.com | sudo sh
+    sudo systemctl enable docker
+    sudo systemctl start docker
+    sudo usermod -aG docker $USER
     print_success "Docker instalado"
+    print_warning "IMPORTANTE: Faça logout e login para usar Docker sem sudo!"
 else
     print_success "Docker já instalado"
 fi
 
+# Verificar se usuário está no grupo docker
+if ! groups | grep -q docker; then
+    print_warning "Adicionando usuário ao grupo docker..."
+    sudo usermod -aG docker $USER
+    print_warning "IMPORTANTE: Faça logout e login para aplicar!"
+fi
+
 # Install Docker Compose
-if ! command -v docker-compose &> /dev/null; then
+if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
     print_warning "Docker Compose não encontrado. Instalando..."
-    curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    chmod +x /usr/local/bin/docker-compose
+    sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    sudo chmod +x /usr/local/bin/docker-compose
     print_success "Docker Compose instalado"
 else
     print_success "Docker Compose já instalado"
@@ -76,9 +79,11 @@ INFRA_DIR="$ROOT_DIR/infrastructure"
 WEBSITE_DIR="$ROOT_DIR/website"
 PERSONAL_DIR="$ROOT_DIR/apps/personal-trainer"
 
-mkdir -p $INFRA_DIR/{nginx/conf.d,certbot/conf,certbot/www,init-scripts}
-mkdir -p $WEBSITE_DIR
-mkdir -p $PERSONAL_DIR/{backend,web}
+# Criar diretórios com sudo e dar permissão ao usuário atual
+sudo mkdir -p $INFRA_DIR/{nginx/conf.d,certbot/conf,certbot/www,init-scripts}
+sudo mkdir -p $WEBSITE_DIR
+sudo mkdir -p $PERSONAL_DIR/{backend,web}
+sudo chown -R $USER:$USER $ROOT_DIR
 
 print_success "Diretórios criados em $ROOT_DIR"
 
