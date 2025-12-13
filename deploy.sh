@@ -230,6 +230,11 @@ cd $PERSONAL_DIR/backend
 # Criar/Atualizar .env do backend
 print_warning "Criando .env do backend..."
 
+# Usar variáveis do Personal Trainer ou fallback para as padrão
+PT_USER="${PERSONAL_TRAINER_USER:-infinityitsolutions}"
+PT_PASS="${PERSONAL_TRAINER_PASSWORD:-Mga@2025}"
+PT_DB="${PERSONAL_TRAINER_DB:-personal_trainer_db}"
+
 cat > ".env" << EOF
 # ===========================================
 # Personal Trainer Backend - Variáveis de Ambiente
@@ -240,7 +245,7 @@ NODE_ENV=production
 PORT=3000
 
 # Database (usando alias postgres-db da rede)
-DATABASE_URL="postgresql://\${PERSONAL_TRAINER_USER:-\${POSTGRES_USER}}:\${PERSONAL_TRAINER_PASSWORD:-\${POSTGRES_PASSWORD}}@postgres-db:5432/\${PERSONAL_TRAINER_DB:-personal_trainer_db}?schema=public"
+DATABASE_URL="postgresql://${PT_USER}:${PT_PASS}@postgres-db:5432/${PT_DB}?schema=public"
 
 # Redis
 REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379"
