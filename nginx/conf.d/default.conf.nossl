@@ -90,3 +90,40 @@ server {
         proxy_pass $backend_health;
     }
 }
+
+# ===========================================
+# Wedding System - wedding.infinityitsolutions.com.br
+# ===========================================
+server {
+    listen 80;
+    server_name wedding.infinityitsolutions.com.br;
+
+    # Certbot challenge
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    # Wedding System API
+    location / {
+        set $wedding_upstream http://wedding-system-models:8004;
+        proxy_pass $wedding_upstream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 120s;
+        proxy_connect_timeout 10s;
+        client_max_body_size 50M;
+    }
+
+    # Health check
+    location /health {
+        set $wedding_health http://wedding-system-models:8004;
+        proxy_pass $wedding_health/health;
+        access_log off;
+    }
+}
