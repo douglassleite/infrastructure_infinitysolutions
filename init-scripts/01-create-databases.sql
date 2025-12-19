@@ -61,3 +61,36 @@ GRANT ALL ON SCHEMA public TO cnpj;
 GRANT ALL ON SCHEMA public TO infinityitsolutions;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO cnpj;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO cnpj;
+
+-- ===========================================
+-- Banco de dados Wedding System
+-- ===========================================
+
+-- Voltar para o banco principal para criar o próximo banco
+\c infinitysolutions_db
+
+-- Criar banco do Wedding System
+SELECT 'CREATE DATABASE wedding_system'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'wedding_system')\gexec
+
+-- Criar usuário wedding se não existir
+DO
+$do$
+BEGIN
+   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'wedding') THEN
+      CREATE ROLE wedding WITH LOGIN PASSWORD 'Mga@2025';
+   END IF;
+END
+$do$;
+
+-- Dar permissões ao usuário wedding no banco wedding_system
+GRANT ALL PRIVILEGES ON DATABASE wedding_system TO wedding;
+GRANT ALL PRIVILEGES ON DATABASE wedding_system TO infinityitsolutions;
+
+-- Conectar ao banco wedding_system e dar permissões no schema
+\c wedding_system
+
+GRANT ALL ON SCHEMA public TO wedding;
+GRANT ALL ON SCHEMA public TO infinityitsolutions;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO wedding;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO wedding;

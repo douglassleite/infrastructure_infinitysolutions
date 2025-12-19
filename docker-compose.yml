@@ -1,5 +1,42 @@
 services:
   # ===========================================
+  # Wedding System - wedding.infinityitsolutions.com.br
+  # ===========================================
+  wedding-system-models:
+    build:
+      context: ${WEDDING_PATH:-../../sitemas-casamento/wedding-system-models}
+      dockerfile: Dockerfile
+    container_name: wedding-system-models
+    restart: always
+    environment:
+      - NODE_ENV=production
+      - PORT=8004
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=wedding_system
+      - DB_USER=wedding
+      - DB_PASSWORD=${POSTGRES_PASSWORD:-Mga@2025}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-Mga@2025}
+      - JWT_SECRET=${WEDDING_JWT_SECRET:-wedding-jwt-secret-change-in-production}
+      - JWT_EXPIRES_IN=7d
+    volumes:
+      - ${WEDDING_PATH:-../../sitemas-casamento/wedding-system-models}/src/custom-sites:/app/src/custom-sites
+    networks:
+      - shared-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ===========================================
   # Site Principal - www.infinityitsolutions.com.br
   # ===========================================
   infinity-website:
@@ -37,6 +74,7 @@ services:
       - frontend-network
     depends_on:
       - infinity-website
+      - wedding-system-models
       - postgres
       - redis
 
