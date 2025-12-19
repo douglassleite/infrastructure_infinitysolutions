@@ -458,7 +458,16 @@ if [ ! -f "$SSL_CERT_PATH" ]; then
         --agree-tos \
         --no-eff-email \
         --non-interactive || print_warning "Falha ao gerar certificado do personalapi"
-    
+
+    # Gerar certificado para wedding
+    docker compose run --rm certbot certonly --webroot \
+        -w /var/www/certbot \
+        -d wedding.infinityitsolutions.com.br \
+        --email contato@infinityitsolutions.com.br \
+        --agree-tos \
+        --no-eff-email \
+        --non-interactive || print_warning "Falha ao gerar certificado do wedding"
+
     # Se certificados foram gerados, aplicar configuração SSL
     if sudo test -d "$SSL_CERT_DIR" && sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
         print_success "Certificados SSL gerados!"
