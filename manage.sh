@@ -30,11 +30,13 @@ show_help() {
     echo -e "  ${GREEN}logs-backend${NC}    - Ver logs do backend"
     echo -e "  ${GREEN}logs-web${NC}        - Ver logs do frontend"
     echo -e "  ${GREEN}logs-website${NC}    - Ver logs do site institucional"
+    echo -e "  ${GREEN}logs-wedding${NC}    - Ver logs do wedding system"
     echo -e "  ${GREEN}logs-nginx${NC}      - Ver logs do nginx"
     echo ""
     echo -e "  ${GREEN}restart-backend${NC} - Reiniciar apenas o backend"
     echo -e "  ${GREEN}restart-web${NC}     - Reiniciar apenas o frontend"
     echo -e "  ${GREEN}restart-website${NC} - Reiniciar site institucional"
+    echo -e "  ${GREEN}restart-wedding${NC} - Reiniciar wedding system"
     echo -e "  ${GREEN}restart-nginx${NC}   - Reiniciar apenas o nginx"
     echo -e "  ${GREEN}restart-all${NC}     - Reiniciar todos os serviços"
     echo ""
@@ -82,7 +84,11 @@ case "$1" in
     logs-website)
         docker logs -f --tail 200 infinity-website
         ;;
-    
+
+    logs-wedding)
+        docker logs -f --tail 200 wedding-system-models
+        ;;
+
     restart-backend)
         echo -e "${BLUE}Reiniciando backend Personal Trainer...${NC}"
         cd $PERSONAL_DIR/backend
@@ -110,7 +116,14 @@ case "$1" in
         docker-compose restart infinity-website
         echo -e "${GREEN}Site institucional reiniciado${NC}"
         ;;
-    
+
+    restart-wedding)
+        echo -e "${BLUE}Reiniciando wedding system...${NC}"
+        cd $INFRA_DIR
+        docker-compose restart wedding-system-models
+        echo -e "${GREEN}Wedding system reiniciado${NC}"
+        ;;
+
     restart-all)
         echo -e "${BLUE}Reiniciando todos os serviços...${NC}"
         cd $PERSONAL_DIR/backend && docker-compose -f docker-compose.prod.yml restart
@@ -210,7 +223,10 @@ case "$1" in
         
         echo -e "${YELLOW}Gerando certificado para personalapi.infinityitsolutions.com.br...${NC}"
         $CERTBOT_CMD -d personalapi.infinityitsolutions.com.br
-        
+
+        echo -e "${YELLOW}Gerando certificado para wedding.infinityitsolutions.com.br...${NC}"
+        $CERTBOT_CMD -d wedding.infinityitsolutions.com.br
+
         # Aguardar um pouco para o volume sincronizar
         sleep 2
         
@@ -231,6 +247,7 @@ case "$1" in
                 echo -e "  - https://www.infinityitsolutions.com.br"
                 echo -e "  - https://personalweb.infinityitsolutions.com.br"
                 echo -e "  - https://personalapi.infinityitsolutions.com.br"
+                echo -e "  - https://wedding.infinityitsolutions.com.br"
             fi
         else
             echo -e "${YELLOW}! Certificados podem ter sido gerados no volume Docker.${NC}"
@@ -249,6 +266,7 @@ case "$1" in
                     echo -e "  - https://www.infinityitsolutions.com.br"
                     echo -e "  - https://personalweb.infinityitsolutions.com.br"
                     echo -e "  - https://personalapi.infinityitsolutions.com.br"
+                    echo -e "  - https://wedding.infinityitsolutions.com.br"
                 else
                     echo -e "${RED}✗ Nginx falhou ao iniciar. Voltando para HTTP...${NC}"
                     cp nginx/conf.d/default.conf.nossl nginx/conf.d/default.conf
