@@ -328,28 +328,29 @@ cd $INFRA_DIR
 
 # Criar banco e usuário wedding se não existirem
 print_step "Verificando banco de dados wedding_system..."
-docker exec infinity-postgres-db psql -U infinityitsolutions -d infinitysolutions_db -c "
-DO \$\$
-BEGIN
-   -- Criar usuário wedding se não existir
-   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'wedding') THEN
-      CREATE ROLE wedding WITH LOGIN PASSWORD '${POSTGRES_PASSWORD:-Mga@2025}';
-      RAISE NOTICE 'Usuário wedding criado';
-   END IF;
-END
-\$\$;
-" || print_warning "Falha ao verificar usuário"
+
+# Criar usuário wedding se não existir
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='wedding'" | grep -q 1 || \
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -c "CREATE ROLE wedding WITH LOGIN PASSWORD '${POSTGRES_PASSWORD:-Mga@2025}';"
+
+if docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='wedding'" | grep -q 1; then
+    print_success "Usuário wedding OK"
+else
+    print_warning "Falha ao criar usuário wedding"
+fi
 
 # Criar banco wedding_system se não existir
-docker exec infinity-postgres-db psql -U infinityitsolutions -d infinitysolutions_db -c "
-SELECT 'CREATE DATABASE wedding_system OWNER wedding'
-WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'wedding_system')\gexec
-" || print_warning "Falha ao criar banco"
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='wedding_system'" | grep -q 1 || \
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -c "CREATE DATABASE wedding_system OWNER wedding;"
+
+if docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='wedding_system'" | grep -q 1; then
+    print_success "Banco wedding_system OK"
+else
+    print_warning "Falha ao criar banco wedding_system"
+fi
 
 # Dar permissões
-docker exec infinity-postgres-db psql -U infinityitsolutions -d infinitysolutions_db -c "
-GRANT ALL PRIVILEGES ON DATABASE wedding_system TO wedding;
-" 2>/dev/null || true
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE wedding_system TO wedding;" 2>/dev/null || true
 
 docker exec infinity-postgres-db psql -U infinityitsolutions -d wedding_system -c "
 GRANT ALL ON SCHEMA public TO wedding;
