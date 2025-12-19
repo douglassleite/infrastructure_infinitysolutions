@@ -325,6 +325,41 @@ print_success "Site institucional iniciado"
 # ===========================================
 print_step "Construindo e iniciando Wedding System..."
 cd $INFRA_DIR
+
+# Criar banco e usuário wedding se não existirem
+print_step "Verificando banco de dados wedding_system..."
+docker exec infinity-postgres-db psql -U infinityitsolutions -d infinitysolutions_db -c "
+DO \$\$
+BEGIN
+   -- Criar usuário wedding se não existir
+   IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = 'wedding') THEN
+      CREATE ROLE wedding WITH LOGIN PASSWORD '${POSTGRES_PASSWORD:-Mga@2025}';
+      RAISE NOTICE 'Usuário wedding criado';
+   END IF;
+END
+\$\$;
+" || print_warning "Falha ao verificar usuário"
+
+# Criar banco wedding_system se não existir
+docker exec infinity-postgres-db psql -U infinityitsolutions -d infinitysolutions_db -c "
+SELECT 'CREATE DATABASE wedding_system OWNER wedding'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'wedding_system')\gexec
+" || print_warning "Falha ao criar banco"
+
+# Dar permissões
+docker exec infinity-postgres-db psql -U infinityitsolutions -d infinitysolutions_db -c "
+GRANT ALL PRIVILEGES ON DATABASE wedding_system TO wedding;
+" 2>/dev/null || true
+
+docker exec infinity-postgres-db psql -U infinityitsolutions -d wedding_system -c "
+GRANT ALL ON SCHEMA public TO wedding;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO wedding;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO wedding;
+" 2>/dev/null || true
+
+print_success "Banco wedding_system configurado"
+
+# Build e start do container
 docker compose up -d --build wedding-system-models
 
 # Aguardar container iniciar
@@ -337,7 +372,7 @@ docker exec wedding-system-models npm run migrate || print_warning "Migration j�
 # Rodar seed apenas se for primeira execução (verificar se tabela tem dados)
 docker exec wedding-system-models sh -c 'node -e "
 const { Pool } = require(\"pg\");
-const pool = new Pool({ connectionString: process.env.DATABASE_URL || \"postgresql://wedding:${POSTGRES_PASSWORD}@postgres:5432/wedding_system\" });
+const pool = new Pool();
 pool.query(\"SELECT COUNT(*) FROM users\").then(r => {
   if (parseInt(r.rows[0].count) === 0) {
     console.log(\"Banco vazio, executando seed...\");
