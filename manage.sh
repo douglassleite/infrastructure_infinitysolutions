@@ -16,7 +16,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 INFRA_DIR="$SCRIPT_DIR"
 WEBSITE_DIR="$ROOT_DIR/website"
 PERSONAL_DIR="$ROOT_DIR/apps/personal-trainer"
-WEDDING_DIR="$ROOT_DIR/sitemas-casamento/wedding-system-models"
+WEDDING_DIR="$ROOT_DIR/apps/wedding-system-models"
 
 show_help() {
     echo ""
