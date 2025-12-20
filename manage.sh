@@ -16,6 +16,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 INFRA_DIR="$SCRIPT_DIR"
 WEBSITE_DIR="$ROOT_DIR/website"
 PERSONAL_DIR="$ROOT_DIR/apps/personal-trainer"
+WEDDING_DIR="$ROOT_DIR/sitemas-casamento/wedding-system-models"
 
 show_help() {
     echo ""
@@ -43,11 +44,14 @@ show_help() {
     echo -e "  ${GREEN}update-backend${NC}  - Atualizar backend (git pull + rebuild)"
     echo -e "  ${GREEN}update-web${NC}      - Atualizar frontend (git pull + rebuild)"
     echo -e "  ${GREEN}update-website${NC}  - Atualizar site institucional"
+    echo -e "  ${GREEN}update-wedding${NC}  - Atualizar wedding system (git pull + rebuild + migrate)"
     echo -e "  ${GREEN}update-all${NC}      - Atualizar todos"
     echo ""
-    echo -e "  ${GREEN}db-shell${NC}        - Acessar PostgreSQL"
+    echo -e "  ${GREEN}db-shell${NC}        - Acessar PostgreSQL (personal trainer)"
+    echo -e "  ${GREEN}db-wedding${NC}      - Acessar PostgreSQL (wedding system)"
     echo -e "  ${GREEN}redis-shell${NC}     - Acessar Redis"
-    echo -e "  ${GREEN}migrate${NC}         - Executar migrations do Prisma"
+    echo -e "  ${GREEN}migrate${NC}         - Executar migrations do Prisma (personal trainer)"
+    echo -e "  ${GREEN}migrate-wedding${NC} - Executar migrations do wedding system"
     echo ""
     echo -e "  ${GREEN}ssl-init${NC}        - Gerar certificados SSL (primeira vez)"
     echo -e "  ${GREEN}ssl-renew${NC}       - Renovar certificado SSL"
@@ -160,25 +164,48 @@ case "$1" in
         docker-compose up -d infinity-website
         echo -e "${GREEN}Site institucional atualizado${NC}"
         ;;
-    
+
+    update-wedding)
+        echo -e "${BLUE}Atualizando wedding system...${NC}"
+        cd $WEDDING_DIR
+        git pull
+        cd $INFRA_DIR
+        docker-compose build wedding-system-models
+        docker-compose up -d wedding-system-models
+        echo -e "${YELLOW}Executando migrations...${NC}"
+        docker exec wedding-system-models npm run migrate
+        echo -e "${GREEN}Wedding system atualizado${NC}"
+        ;;
+
     update-all)
         $0 update-backend
         $0 update-web
         $0 update-website
+        $0 update-wedding
         ;;
     
     db-shell)
-        docker exec -it postgres-db psql -U ${POSTGRES_USER:-personal_trainer} -d ${POSTGRES_DB:-personal_trainer_db}
+        docker exec -it infinity-postgres-db psql -U ${POSTGRES_USER:-personal_trainer} -d ${POSTGRES_DB:-personal_trainer_db}
         ;;
-    
+
+    db-wedding)
+        docker exec -it infinity-postgres-db psql -U wedding -d wedding_system
+        ;;
+
     redis-shell)
         docker exec -it redis-cache redis-cli
         ;;
-    
+
     migrate)
-        echo -e "${BLUE}Executando migrations...${NC}"
+        echo -e "${BLUE}Executando migrations Personal Trainer...${NC}"
         cd $PERSONAL_DIR/backend
         docker-compose -f docker-compose.prod.yml run --rm backend npx prisma migrate deploy
+        echo -e "${GREEN}Migrations executadas${NC}"
+        ;;
+
+    migrate-wedding)
+        echo -e "${BLUE}Executando migrations Wedding System...${NC}"
+        docker exec wedding-system-models npm run migrate
         echo -e "${GREEN}Migrations executadas${NC}"
         ;;
     
