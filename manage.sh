@@ -257,8 +257,8 @@ case "$1" in
                 --no-eff-email \
                 --non-interactive
 
-            # Verificar se certificado foi gerado
-            if [ ! -d "certbot/conf/live/$DOMAIN" ]; then
+            # Verificar se certificado foi gerado (usar sudo pois diretório é root)
+            if ! sudo test -d "certbot/conf/live/$DOMAIN"; then
                 echo -e "${RED}✗ Falha ao gerar certificado para $DOMAIN${NC}"
                 echo -e "${YELLOW}Possíveis causas:${NC}"
                 echo "  - DNS não está apontando para este servidor"
@@ -268,6 +268,8 @@ case "$1" in
                 echo -e "${YELLOW}O site permanece desabilitado. Outros sites continuam funcionando.${NC}"
                 exit 1
             fi
+        else
+            echo -e "${GREEN}✓ Certificado já existe${NC}"
         fi
 
         echo -e "${GREEN}✓ Certificado OK${NC}"
