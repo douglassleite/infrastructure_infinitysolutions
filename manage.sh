@@ -268,8 +268,6 @@ case "$1" in
                 echo -e "${YELLOW}O site permanece desabilitado. Outros sites continuam funcionando.${NC}"
                 exit 1
             fi
-        else
-            echo -e "${GREEN}✓ Certificado já existe${NC}"
         fi
 
         echo -e "${GREEN}✓ Certificado OK${NC}"
