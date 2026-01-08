@@ -23,6 +23,7 @@ services:
       - JWT_EXPIRES_IN=7d
     volumes:
       - ${EVOLLY_PATH:-../../sitemas-casamento/evolly}/src/custom-sites:/app/src/custom-sites
+      - evolly_uploads:/app/public/uploads
     networks:
       - shared-network
     depends_on:
@@ -163,3 +164,4 @@ networks:
 volumes:
   postgres_data:
   redis_data:
+  evolly_uploads:
