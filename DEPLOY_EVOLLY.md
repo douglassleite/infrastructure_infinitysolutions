@@ -146,31 +146,33 @@ docker ps | grep evolly-vanessaemarlo
 
 ## Passo 9: Gerar certificado SSL para vanessaemarlo.com.br
 
-### 9.1 Usar config sem SSL temporariamente
+### Metodo Recomendado: Usar manage.sh
 
 ```bash
 cd ~/infinityitsolutions/infrastructure_infinitysolutions
 
-# Backup da config atual
-cp nginx/conf.d/default.conf nginx/conf.d/default.conf.backup
+# Gerar SSL e habilitar site automaticamente
+./manage.sh ssl-add vanessaemarlo.com.br
 
-# Usar config sem SSL
-cp nginx/conf.d/default.conf.nossl nginx/conf.d/default.conf
-
-# Reiniciar nginx
-docker compose restart nginx
-
-# Aguardar
-sleep 5
+# Verificar sites habilitados
+./manage.sh ssl-list
 ```
 
-### 9.2 Gerar certificado
+O comando `ssl-add` faz automaticamente:
+1. Cria diretorios necessarios
+2. Gera certificado via Let's Encrypt
+3. Copia config do site para nginx/conf.d/
+4. Reinicia nginx
+
+### Metodo Manual (se necessario)
 
 ```bash
-# Gerar certificado para vanessaemarlo.com.br
+cd ~/infinityitsolutions/infrastructure_infinitysolutions
+
+# Gerar certificado
 docker run --rm \
-  -v ~/infinityitsolutions/infrastructure_infinitysolutions/certbot/conf:/etc/letsencrypt \
-  -v ~/infinityitsolutions/infrastructure_infinitysolutions/certbot/www:/var/www/certbot \
+  -v $(pwd)/certbot/conf:/etc/letsencrypt \
+  -v $(pwd)/certbot/www:/var/www/certbot \
   certbot/certbot certonly --webroot \
   -w /var/www/certbot \
   -d vanessaemarlo.com.br \
@@ -179,23 +181,35 @@ docker run --rm \
   --agree-tos \
   --no-eff-email \
   --non-interactive
-```
 
-### 9.3 Restaurar config com SSL
-
-```bash
-# Restaurar config com SSL (que já tem vanessaemarlo configurado)
-cp nginx/conf.d/default.conf.backup nginx/conf.d/default.conf
-
-# Ou usar a versão .ssl se existir atualizada
-# cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf
+# Copiar config do site
+cp nginx/sites-available/vanessaemarlo.conf nginx/conf.d/
 
 # Reiniciar nginx
 docker compose restart nginx
-
-# Verificar se nginx está OK
-docker logs nginx-proxy --tail 20
 ```
+
+### Arquitetura Modular do Nginx
+
+O nginx usa arquitetura modular com configs separadas:
+
+```
+nginx/
+├── conf.d/                    # Configs ativas
+│   ├── 00-base.conf           # Upstreams
+│   ├── 01-certbot.conf        # HTTP + certbot
+│   ├── infinityitsolutions.conf
+│   ├── personalweb.conf
+│   ├── personalapi.conf
+│   ├── wedding.conf
+│   └── vanessaemarlo.conf     # Habilitado via ssl-add
+├── sites-available/           # Configs disponiveis (desabilitadas)
+│   └── novo-site.conf
+└── templates/
+    └── wedding-site.conf.template
+```
+
+**Vantagem:** Se um site tiver problema de SSL, os outros continuam funcionando.
 
 ---
 
@@ -262,6 +276,17 @@ cd ~/infinityitsolutions/infrastructure_infinitysolutions
 
 # Ver logs do nginx
 ./manage.sh logs-nginx
+
+# Gerenciamento de SSL/Dominios
+./manage.sh ssl-add <dominio>      # Gerar SSL e habilitar site
+./manage.sh ssl-remove <dominio>   # Desabilitar site (mantem certificado)
+./manage.sh ssl-list               # Listar sites habilitados/desabilitados
+./manage.sh ssl-renew              # Renovar todos os certificados
+./manage.sh ssl-status             # Ver status dos certificados
+
+# Banco de dados
+./manage.sh db-evolly              # Acessar PostgreSQL do Evolly
+./manage.sh migrate-evolly         # Rodar migrations
 ```
 
 ---
