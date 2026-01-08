@@ -14,8 +14,8 @@ upstream website {
     keepalive 32;
 }
 
-upstream wedding {
-    server wedding-system-models:8004;
+upstream evolly {
+    server evolly:8004;
     keepalive 32;
 }
 
@@ -210,7 +210,7 @@ server {
 }
 
 # ===========================================
-# Wedding System - wedding.infinityitsolutions.com.br
+# Evolly - wedding.infinityitsolutions.com.br
 # ===========================================
 server {
     listen 443 ssl http2;
@@ -231,11 +231,11 @@ server {
     # HSTS
     add_header Strict-Transport-Security "max-age=63072000" always;
 
-    # Wedding System API
+    # Evolly API
     location / {
         limit_req zone=api burst=20 nodelay;
 
-        proxy_pass http://wedding;
+        proxy_pass http://evolly;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';

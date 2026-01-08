@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  vanessaemarlo-site:
+    build: .
+    container_name: evolly-vanessaemarlo
+    restart: unless-stopped
+    networks:
+      - infinityitsolutions-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  infinityitsolutions-network:
+    name: infinityitsolutions-network
+    external: true

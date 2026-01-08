@@ -1,6 +1,6 @@
-# 🏗️ Personal Trainer Infrastructure
+# 🏗️ Infinity IT Solutions - Infrastructure
 
-Infraestrutura Docker para o sistema Personal Trainer (PostgreSQL, Redis, Nginx com SSL).
+Infraestrutura Docker centralizada para todos os projetos (PostgreSQL, Redis, Nginx com SSL).
 
 ## 📦 Serviços
 
@@ -35,9 +35,8 @@ Infraestrutura Docker para o sistema Personal Trainer (PostgreSQL, Redis, Nginx 
 ```bash
 # Clonar repositório
 cd ~
-mkdir -p academia_na_mao && cd academia_na_mao
-git clone https://github.com/douglassleite/personal_trainer_infrastructure.git
-cd personal_trainer_infrastructure
+git clone https://github.com/douglassleite/infrastructure_infinitysolutions.git
+cd infrastructure_infinitysolutions
 
 # Configurar variáveis
 cp .env.example .env
@@ -59,7 +58,7 @@ docker ps
 ### Passo 2: Backend
 
 ```bash
-cd ~/academia_na_mao
+cd ~
 git clone https://github.com/douglassleite/personal_trainer_backend.git
 cd personal_trainer_backend
 
@@ -77,7 +76,7 @@ docker exec personal-trainer-backend npx prisma migrate deploy
 ### Passo 3: Frontend
 
 ```bash
-cd ~/academia_na_mao
+cd ~
 git clone https://github.com/douglassleite/personal_trainer_web.git
 cd personal_trainer_web
 
@@ -88,7 +87,7 @@ docker compose -f docker-compose.prod.yml up -d --build
 ### Passo 4: SSL (Certbot)
 
 ```bash
-cd ~/academia_na_mao/personal_trainer_infrastructure
+cd ~/infrastructure_infinitysolutions
 
 # Gerar certificados
 docker run -it --rm \
@@ -183,7 +182,7 @@ Os certificados Let's Encrypt expiram em 90 dias.
 ### Renovação manual
 
 ```bash
-cd ~/academia_na_mao/personal_trainer_infrastructure
+cd ~/infrastructure_infinitysolutions
 
 docker run -it --rm \
   -v $(pwd)/certbot/conf:/etc/letsencrypt \
@@ -200,7 +199,7 @@ docker restart nginx-proxy
 crontab -e
 
 # Adicionar (renova todo dia 1 às 3h)
-0 3 1 * * cd ~/academia_na_mao/personal_trainer_infrastructure && docker run --rm -v $(pwd)/certbot/conf:/etc/letsencrypt -v $(pwd)/certbot/www:/var/www/certbot certbot/certbot renew && docker restart nginx-proxy
+0 3 1 * * cd ~/infrastructure_infinitysolutions && docker run --rm -v $(pwd)/certbot/conf:/etc/letsencrypt -v $(pwd)/certbot/www:/var/www/certbot certbot/certbot renew && docker restart nginx-proxy
 ```
 
 ---
@@ -223,7 +222,7 @@ O backend e frontend conectam como `external: true` em seus docker-compose.
 ## 📁 Estrutura de Arquivos
 
 ```
-personal_trainer_infrastructure/
+infrastructure_infinitysolutions/
 ├── docker-compose.yml          # Definição dos serviços
 ├── .env                        # Variáveis (não commitar!)
 ├── .env.example                # Template de variáveis

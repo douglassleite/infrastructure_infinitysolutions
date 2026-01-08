@@ -16,7 +16,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 INFRA_DIR="$SCRIPT_DIR"
 WEBSITE_DIR="$ROOT_DIR/website"
 PERSONAL_DIR="$ROOT_DIR/apps/personal-trainer"
-WEDDING_DIR="$ROOT_DIR/apps/wedding-system-models"
+EVOLLY_DIR="$ROOT_DIR/apps/evolly"
 
 show_help() {
     echo ""
@@ -31,27 +31,27 @@ show_help() {
     echo -e "  ${GREEN}logs-backend${NC}    - Ver logs do backend"
     echo -e "  ${GREEN}logs-web${NC}        - Ver logs do frontend"
     echo -e "  ${GREEN}logs-website${NC}    - Ver logs do site institucional"
-    echo -e "  ${GREEN}logs-wedding${NC}    - Ver logs do wedding system"
+    echo -e "  ${GREEN}logs-evolly${NC}     - Ver logs do Evolly"
     echo -e "  ${GREEN}logs-nginx${NC}      - Ver logs do nginx"
     echo ""
     echo -e "  ${GREEN}restart-backend${NC} - Reiniciar apenas o backend"
     echo -e "  ${GREEN}restart-web${NC}     - Reiniciar apenas o frontend"
     echo -e "  ${GREEN}restart-website${NC} - Reiniciar site institucional"
-    echo -e "  ${GREEN}restart-wedding${NC} - Reiniciar wedding system"
+    echo -e "  ${GREEN}restart-evolly${NC}  - Reiniciar Evolly"
     echo -e "  ${GREEN}restart-nginx${NC}   - Reiniciar apenas o nginx"
     echo -e "  ${GREEN}restart-all${NC}     - Reiniciar todos os serviços"
     echo ""
     echo -e "  ${GREEN}update-backend${NC}  - Atualizar backend (git pull + rebuild)"
     echo -e "  ${GREEN}update-web${NC}      - Atualizar frontend (git pull + rebuild)"
     echo -e "  ${GREEN}update-website${NC}  - Atualizar site institucional"
-    echo -e "  ${GREEN}update-wedding${NC}  - Atualizar wedding system (git pull + rebuild + migrate)"
+    echo -e "  ${GREEN}update-evolly${NC}   - Atualizar Evolly (git pull + rebuild + migrate)"
     echo -e "  ${GREEN}update-all${NC}      - Atualizar todos"
     echo ""
     echo -e "  ${GREEN}db-shell${NC}        - Acessar PostgreSQL (personal trainer)"
-    echo -e "  ${GREEN}db-wedding${NC}      - Acessar PostgreSQL (wedding system)"
+    echo -e "  ${GREEN}db-evolly${NC}       - Acessar PostgreSQL (Evolly)"
     echo -e "  ${GREEN}redis-shell${NC}     - Acessar Redis"
     echo -e "  ${GREEN}migrate${NC}         - Executar migrations do Prisma (personal trainer)"
-    echo -e "  ${GREEN}migrate-wedding${NC} - Executar migrations do wedding system"
+    echo -e "  ${GREEN}migrate-evolly${NC}  - Executar migrations do Evolly"
     echo ""
     echo -e "  ${GREEN}ssl-init${NC}        - Gerar certificados SSL (primeira vez)"
     echo -e "  ${GREEN}ssl-renew${NC}       - Renovar certificado SSL"
@@ -89,8 +89,8 @@ case "$1" in
         docker logs -f --tail 200 infinity-website
         ;;
 
-    logs-wedding)
-        docker logs -f --tail 200 wedding-system-models
+    logs-evolly)
+        docker logs -f --tail 200 evolly
         ;;
 
     restart-backend)
@@ -121,11 +121,11 @@ case "$1" in
         echo -e "${GREEN}Site institucional reiniciado${NC}"
         ;;
 
-    restart-wedding)
-        echo -e "${BLUE}Reiniciando wedding system...${NC}"
+    restart-evolly)
+        echo -e "${BLUE}Reiniciando Evolly...${NC}"
         cd $INFRA_DIR
-        docker-compose restart wedding-system-models
-        echo -e "${GREEN}Wedding system reiniciado${NC}"
+        docker-compose restart evolly
+        echo -e "${GREEN}Evolly reiniciado${NC}"
         ;;
 
     restart-all)
@@ -165,30 +165,30 @@ case "$1" in
         echo -e "${GREEN}Site institucional atualizado${NC}"
         ;;
 
-    update-wedding)
-        echo -e "${BLUE}Atualizando wedding system...${NC}"
-        cd $WEDDING_DIR
+    update-evolly)
+        echo -e "${BLUE}Atualizando Evolly...${NC}"
+        cd $EVOLLY_DIR
         git pull
         cd $INFRA_DIR
-        docker-compose build wedding-system-models
-        docker-compose up -d wedding-system-models
+        docker-compose build evolly
+        docker-compose up -d evolly
         echo -e "${YELLOW}Executando migrations...${NC}"
-        docker exec wedding-system-models npm run migrate
-        echo -e "${GREEN}Wedding system atualizado${NC}"
+        docker exec evolly npm run migrate
+        echo -e "${GREEN}Evolly atualizado${NC}"
         ;;
 
     update-all)
         $0 update-backend
         $0 update-web
         $0 update-website
-        $0 update-wedding
+        $0 update-evolly
         ;;
     
     db-shell)
         docker exec -it infinity-postgres-db psql -U ${POSTGRES_USER:-personal_trainer} -d ${POSTGRES_DB:-personal_trainer_db}
         ;;
 
-    db-wedding)
+    db-evolly)
         docker exec -it infinity-postgres-db psql -U wedding -d wedding_system
         ;;
 
@@ -203,9 +203,9 @@ case "$1" in
         echo -e "${GREEN}Migrations executadas${NC}"
         ;;
 
-    migrate-wedding)
-        echo -e "${BLUE}Executando migrations Wedding System...${NC}"
-        docker exec wedding-system-models npm run migrate
+    migrate-evolly)
+        echo -e "${BLUE}Executando migrations Evolly...${NC}"
+        docker exec evolly npm run migrate
         echo -e "${GREEN}Migrations executadas${NC}"
         ;;
     

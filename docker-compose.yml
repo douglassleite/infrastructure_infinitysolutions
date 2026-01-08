@@ -1,12 +1,12 @@
 services:
   # ===========================================
-  # Wedding System - wedding.infinityitsolutions.com.br
+  # Evolly - Sistema de Eventos
   # ===========================================
-  wedding-system-models:
+  evolly:
     build:
-      context: ${WEDDING_PATH:-../../sitemas-casamento/wedding-system-models}
+      context: ${EVOLLY_PATH:-../../sitemas-casamento/evolly}
       dockerfile: Dockerfile
-    container_name: wedding-system-models
+    container_name: evolly
     restart: always
     environment:
       - NODE_ENV=production
@@ -22,7 +22,7 @@ services:
       - JWT_SECRET=${WEDDING_JWT_SECRET:-wedding-jwt-secret-change-in-production}
       - JWT_EXPIRES_IN=7d
     volumes:
-      - ${WEDDING_PATH:-../../sitemas-casamento/wedding-system-models}/src/custom-sites:/app/src/custom-sites
+      - ${EVOLLY_PATH:-../../sitemas-casamento/evolly}/src/custom-sites:/app/src/custom-sites
     networks:
       - shared-network
     depends_on:
@@ -74,7 +74,7 @@ services:
       - frontend-network
     depends_on:
       - infinity-website
-      - wedding-system-models
+      - evolly
       - postgres
       - redis
 

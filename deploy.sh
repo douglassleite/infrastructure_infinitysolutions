@@ -79,13 +79,13 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 INFRA_DIR="$SCRIPT_DIR"
 WEBSITE_DIR="$ROOT_DIR/website"
 PERSONAL_DIR="$ROOT_DIR/apps/personal-trainer"
-WEDDING_DIR="$ROOT_DIR/apps/wedding-system-models"
+EVOLLY_DIR="$ROOT_DIR/apps/evolly"
 
 # Criar diretórios
 mkdir -p $INFRA_DIR/{nginx/conf.d,certbot/conf,certbot/www,init-scripts}
 mkdir -p $WEBSITE_DIR
 mkdir -p $PERSONAL_DIR/{backend,web}
-mkdir -p $WEDDING_DIR
+mkdir -p $EVOLLY_DIR
 
 print_success "Diretórios criados em $ROOT_DIR"
 
@@ -131,7 +131,7 @@ WEDDING_JWT_SECRET=$(generate_password)
 
 # Paths
 WEBSITE_PATH=../website
-WEDDING_PATH=../apps/wedding-system-models
+EVOLLY_PATH=../apps/evolly
 EOF
     
     print_success ".env da infraestrutura criado"
@@ -184,15 +184,15 @@ else
 fi
 print_success "Frontend Personal Trainer atualizado"
 
-# Wedding System Models (privado - usa SSH)
-if [ -d "$WEDDING_DIR/.git" ]; then
-    cd $WEDDING_DIR
+# Evolly (privado - usa SSH)
+if [ -d "$EVOLLY_DIR/.git" ]; then
+    cd $EVOLLY_DIR
     git pull
 else
     cd $ROOT_DIR/apps
-    git clone git@github.com:douglassleite/wedding-system-models.git wedding-system-models
+    git clone git@github.com:douglassleite/evolly.git evolly
 fi
-print_success "Wedding System Models atualizado"
+print_success "Evolly atualizado"
 
 print_success "Repositórios atualizados"
 
@@ -321,9 +321,9 @@ docker compose up -d --build infinity-website
 print_success "Site institucional iniciado"
 
 # ===========================================
-# STEP 7.5: Start Wedding System Models
+# STEP 7.5: Start Evolly
 # ===========================================
-print_step "Construindo e iniciando Wedding System..."
+print_step "Construindo e iniciando Evolly..."
 cd $INFRA_DIR
 
 # Criar banco e usuário wedding se não existirem
@@ -361,17 +361,17 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO wedding;
 print_success "Banco wedding_system configurado"
 
 # Build e start do container
-docker compose up -d --build wedding-system-models
+docker compose up -d --build evolly
 
 # Aguardar container iniciar
 sleep 5
 
 # Rodar migrations (CREATE TABLE IF NOT EXISTS - não apaga dados)
-print_step "Executando migrations do Wedding System..."
-docker exec wedding-system-models npm run migrate || print_warning "Migration já executada ou falhou"
+print_step "Executando migrations do Evolly..."
+docker exec evolly npm run migrate || print_warning "Migration já executada ou falhou"
 
 # Rodar seed apenas se for primeira execução (verificar se tabela tem dados)
-docker exec wedding-system-models sh -c 'node -e "
+docker exec evolly sh -c 'node -e "
 const { Pool } = require(\"pg\");
 const pool = new Pool();
 pool.query(\"SELECT COUNT(*) FROM users\").then(r => {
@@ -383,9 +383,9 @@ pool.query(\"SELECT COUNT(*) FROM users\").then(r => {
     process.exit(1);
   }
 }).catch(() => process.exit(0));
-"' && docker exec wedding-system-models npm run seed || print_success "Seed já executado anteriormente"
+"' && docker exec evolly npm run seed || print_success "Seed já executado anteriormente"
 
-print_success "Wedding System iniciado"
+print_success "Evolly iniciado"
 
 # ===========================================
 # STEP 8: Start Nginx (Reverse Proxy) com SSL automático
@@ -499,7 +499,7 @@ echo "Arquivos de configuração:"
 echo "  - Infraestrutura: $INFRA_DIR/.env"
 echo "  - Backend: $PERSONAL_DIR/backend/.env"
 echo "  - Frontend: $PERSONAL_DIR/web/.env"
-echo "  - Wedding: $WEDDING_DIR (usa .env da infra)"
+echo "  - Evolly: $EVOLLY_DIR (usa .env da infra)"
 echo ""
 echo -e "${YELLOW}IMPORTANTE: As senhas foram geradas automaticamente.${NC}"
 echo -e "${YELLOW}Verifique o arquivo $INFRA_DIR/.env para ver as credenciais.${NC}"
