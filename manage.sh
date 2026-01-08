@@ -55,6 +55,7 @@ show_help() {
     echo ""
     echo -e "  ${GREEN}ssl-init${NC}        - Gerar certificados SSL (primeira vez)"
     echo -e "  ${GREEN}ssl-renew${NC}       - Renovar certificado SSL"
+    echo -e "  ${GREEN}ssl-restore${NC}     - Restaurar configuração SSL (após usar nossl)"
     echo -e "  ${GREEN}ssl-status${NC}      - Ver status do certificado SSL"
     echo ""
     echo -e "  ${GREEN}cleanup${NC}         - Limpar imagens e containers não utilizados"
@@ -312,6 +313,28 @@ case "$1" in
             certbot/certbot renew
         docker-compose restart nginx
         echo -e "${GREEN}Certificados renovados${NC}"
+        ;;
+
+    ssl-restore)
+        echo -e "${BLUE}Restaurando configuração SSL...${NC}"
+        cd $INFRA_DIR
+        if [ -f nginx/conf.d/default.conf.ssl ]; then
+            cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf
+            docker-compose restart nginx
+            sleep 2
+            if docker ps | grep -q nginx-proxy; then
+                echo -e "${GREEN}✓ Configuração SSL restaurada!${NC}"
+            else
+                echo -e "${RED}✗ Nginx falhou. Voltando para HTTP...${NC}"
+                cp nginx/conf.d/default.conf.nossl nginx/conf.d/default.conf
+                docker-compose restart nginx
+            fi
+        else
+            echo -e "${YELLOW}Usando git checkout...${NC}"
+            git checkout nginx/conf.d/default.conf
+            docker-compose restart nginx
+            echo -e "${GREEN}✓ Configuração restaurada via git${NC}"
+        fi
         ;;
     
     ssl-status)
