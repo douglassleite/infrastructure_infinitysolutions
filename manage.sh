@@ -53,39 +53,45 @@ show_help() {
     echo -e "  ${GREEN}migrate${NC}         - Executar migrations do Prisma (personal trainer)"
     echo -e "  ${GREEN}migrate-evolly${NC}  - Executar migrations do Evolly"
     echo ""
-    echo -e "  ${GREEN}ssl-init${NC}        - Gerar certificados SSL (primeira vez)"
-    echo -e "  ${GREEN}ssl-renew${NC}       - Renovar certificado SSL"
-    echo -e "  ${GREEN}ssl-restore${NC}     - Restaurar configuração SSL (após usar nossl)"
-    echo -e "  ${GREEN}ssl-status${NC}      - Ver status do certificado SSL"
+    echo -e "  ${GREEN}ssl-add <domain>${NC}    - Gerar SSL e habilitar site (ex: ssl-add vanessaemarlo.com.br)"
+    echo -e "  ${GREEN}ssl-remove <domain>${NC} - Desabilitar site (remove config, mantém certificado)"
+    echo -e "  ${GREEN}ssl-list${NC}            - Listar sites habilitados/desabilitados"
+    echo -e "  ${GREEN}ssl-renew${NC}           - Renovar todos os certificados SSL"
+    echo -e "  ${GREEN}ssl-status${NC}          - Ver status dos certificados SSL"
     echo ""
     echo -e "  ${GREEN}cleanup${NC}         - Limpar imagens e containers não utilizados"
     echo -e "  ${GREEN}disk${NC}            - Ver uso de disco do Docker"
     echo ""
 }
 
+# Função para extrair nome do site do domínio (ex: vanessaemarlo.com.br -> vanessaemarlo)
+get_site_name() {
+    echo "$1" | sed 's/\.com\.br$//' | sed 's/\.com$//' | sed 's/\./-/g'
+}
+
 case "$1" in
     status)
         docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
         ;;
-    
+
     logs)
         docker logs -f --tail 100 personal-trainer-backend &
         docker logs -f --tail 100 personal-trainer-web &
         docker logs -f --tail 100 nginx-proxy
         ;;
-    
+
     logs-backend)
         docker logs -f --tail 200 personal-trainer-backend
         ;;
-    
+
     logs-web)
         docker logs -f --tail 200 personal-trainer-web
         ;;
-    
+
     logs-nginx)
         docker logs -f --tail 200 nginx-proxy
         ;;
-    
+
     logs-website)
         docker logs -f --tail 200 infinity-website
         ;;
@@ -100,32 +106,32 @@ case "$1" in
         docker-compose -f docker-compose.prod.yml restart
         echo -e "${GREEN}Backend reiniciado${NC}"
         ;;
-    
+
     restart-web)
         echo -e "${BLUE}Reiniciando frontend Personal Trainer...${NC}"
         cd $PERSONAL_DIR/web
         docker-compose -f docker-compose.prod.yml restart
         echo -e "${GREEN}Frontend reiniciado${NC}"
         ;;
-    
+
     restart-nginx)
         echo -e "${BLUE}Reiniciando Nginx...${NC}"
         cd $INFRA_DIR
-        docker-compose restart nginx
+        docker compose restart nginx
         echo -e "${GREEN}Nginx reiniciado${NC}"
         ;;
-    
+
     restart-website)
         echo -e "${BLUE}Reiniciando site institucional...${NC}"
         cd $INFRA_DIR
-        docker-compose restart infinity-website
+        docker compose restart infinity-website
         echo -e "${GREEN}Site institucional reiniciado${NC}"
         ;;
 
     restart-evolly)
         echo -e "${BLUE}Reiniciando Evolly...${NC}"
         cd $INFRA_DIR
-        docker-compose restart evolly
+        docker compose restart evolly
         echo -e "${GREEN}Evolly reiniciado${NC}"
         ;;
 
@@ -133,10 +139,10 @@ case "$1" in
         echo -e "${BLUE}Reiniciando todos os serviços...${NC}"
         cd $PERSONAL_DIR/backend && docker-compose -f docker-compose.prod.yml restart
         cd $PERSONAL_DIR/web && docker-compose -f docker-compose.prod.yml restart
-        cd $INFRA_DIR && docker-compose restart
+        cd $INFRA_DIR && docker compose restart
         echo -e "${GREEN}Todos os serviços reiniciados${NC}"
         ;;
-    
+
     update-backend)
         echo -e "${BLUE}Atualizando backend Personal Trainer...${NC}"
         cd $PERSONAL_DIR/backend
@@ -146,7 +152,7 @@ case "$1" in
         docker-compose -f docker-compose.prod.yml up -d
         echo -e "${GREEN}Backend atualizado${NC}"
         ;;
-    
+
     update-web)
         echo -e "${BLUE}Atualizando frontend Personal Trainer...${NC}"
         cd $PERSONAL_DIR/web
@@ -155,14 +161,14 @@ case "$1" in
         docker-compose -f docker-compose.prod.yml up -d
         echo -e "${GREEN}Frontend atualizado${NC}"
         ;;
-    
+
     update-website)
         echo -e "${BLUE}Atualizando site institucional...${NC}"
         cd $WEBSITE_DIR
         git pull
         cd $INFRA_DIR
-        docker-compose build infinity-website
-        docker-compose up -d infinity-website
+        docker compose build infinity-website
+        docker compose up -d infinity-website
         echo -e "${GREEN}Site institucional atualizado${NC}"
         ;;
 
@@ -171,8 +177,8 @@ case "$1" in
         cd $EVOLLY_DIR
         git pull
         cd $INFRA_DIR
-        docker-compose build evolly
-        docker-compose up -d evolly
+        docker compose build evolly
+        docker compose up -d evolly
         echo -e "${YELLOW}Executando migrations...${NC}"
         docker exec evolly npm run migrate
         echo -e "${GREEN}Evolly atualizado${NC}"
@@ -184,7 +190,7 @@ case "$1" in
         $0 update-website
         $0 update-evolly
         ;;
-    
+
     db-shell)
         docker exec -it infinity-postgres-db psql -U ${POSTGRES_USER:-personal_trainer} -d ${POSTGRES_DB:-personal_trainer_db}
         ;;
@@ -209,101 +215,172 @@ case "$1" in
         docker exec evolly npm run migrate
         echo -e "${GREEN}Migrations executadas${NC}"
         ;;
-    
-    ssl-init)
-        echo -e "${BLUE}Gerando certificados SSL...${NC}"
+
+    ssl-add)
+        DOMAIN="$2"
+        if [ -z "$DOMAIN" ]; then
+            echo -e "${RED}Erro: Domínio não especificado${NC}"
+            echo "Uso: ./manage.sh ssl-add <dominio>"
+            echo "Exemplo: ./manage.sh ssl-add vanessaemarlo.com.br"
+            exit 1
+        fi
+
+        SITE_NAME=$(get_site_name "$DOMAIN")
+        echo -e "${BLUE}Adicionando SSL para ${DOMAIN}...${NC}"
         cd $INFRA_DIR
-        
+
         # Criar diretórios necessários
         mkdir -p certbot/conf certbot/www/.well-known/acme-challenge
-        
-        # Reiniciar nginx para garantir que está usando config HTTP
-        echo -e "${YELLOW}Verificando configuração HTTP...${NC}"
-        if [ -f nginx/conf.d/default.conf.nossl ]; then
-            cp nginx/conf.d/default.conf.nossl nginx/conf.d/default.conf
-            docker-compose restart nginx
-            sleep 3
-        fi
-        
+
         # Verificar se nginx está rodando
         if ! docker ps | grep -q nginx-proxy; then
-            echo -e "${RED}Nginx não está rodando. Iniciando...${NC}"
-            docker-compose up -d nginx
+            echo -e "${YELLOW}Nginx não está rodando. Iniciando...${NC}"
+            docker compose up -d nginx
             sleep 5
         fi
-        
-        # Usar docker run diretamente (evita entrypoint customizado do docker-compose)
-        CERTBOT_CMD="docker run --rm \
-            -v $INFRA_DIR/certbot/conf:/etc/letsencrypt \
-            -v $INFRA_DIR/certbot/www:/var/www/certbot \
-            certbot/certbot certonly --webroot \
-            -w /var/www/certbot \
-            --email contato@infinityitsolutions.com.br \
-            --agree-tos \
-            --no-eff-email \
-            --non-interactive"
-        
-        echo -e "${YELLOW}Gerando certificado para www.infinityitsolutions.com.br...${NC}"
-        $CERTBOT_CMD -d www.infinityitsolutions.com.br -d infinityitsolutions.com.br
-        
-        echo -e "${YELLOW}Gerando certificado para personalweb.infinityitsolutions.com.br...${NC}"
-        $CERTBOT_CMD -d personalweb.infinityitsolutions.com.br
-        
-        echo -e "${YELLOW}Gerando certificado para personalapi.infinityitsolutions.com.br...${NC}"
-        $CERTBOT_CMD -d personalapi.infinityitsolutions.com.br
 
-        echo -e "${YELLOW}Gerando certificado para wedding.infinityitsolutions.com.br...${NC}"
-        $CERTBOT_CMD -d wedding.infinityitsolutions.com.br
-
-        # Aguardar um pouco para o volume sincronizar
-        sleep 2
-        
-        # Verificar se certificados foram gerados (verificar diretório local)
-        if [ -d "certbot/conf/live/www.infinityitsolutions.com.br" ] || \
-           [ -f "certbot/conf/renewal/www.infinityitsolutions.com.br.conf" ]; then
-            echo -e "${GREEN}✓ Certificados gerados com sucesso!${NC}"
-            
-            # Aplicar configuração SSL
-            if [ -f nginx/conf.d/default.conf.ssl ]; then
-                echo -e "${YELLOW}Aplicando configuração SSL...${NC}"
-                cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf
-                docker-compose restart nginx
-                sleep 2
-                echo -e "${GREEN}✓ HTTPS ativado!${NC}"
-                echo ""
-                echo -e "${GREEN}Sites disponíveis:${NC}"
-                echo -e "  - https://www.infinityitsolutions.com.br"
-                echo -e "  - https://personalweb.infinityitsolutions.com.br"
-                echo -e "  - https://personalapi.infinityitsolutions.com.br"
-                echo -e "  - https://wedding.infinityitsolutions.com.br"
-            fi
+        # Verificar se já existe certificado
+        if [ -d "certbot/conf/live/$DOMAIN" ]; then
+            echo -e "${YELLOW}Certificado já existe para $DOMAIN${NC}"
         else
-            echo -e "${YELLOW}! Certificados podem ter sido gerados no volume Docker.${NC}"
-            echo -e "${YELLOW}  Aplicando configuração SSL de qualquer forma...${NC}"
-            
-            if [ -f nginx/conf.d/default.conf.ssl ]; then
-                cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf
-                docker-compose restart nginx
-                sleep 2
-                
-                # Testar se nginx iniciou corretamente
-                if docker ps | grep -q nginx-proxy; then
-                    echo -e "${GREEN}✓ HTTPS ativado com sucesso!${NC}"
-                    echo ""
-                    echo -e "${GREEN}Sites disponíveis:${NC}"
-                    echo -e "  - https://www.infinityitsolutions.com.br"
-                    echo -e "  - https://personalweb.infinityitsolutions.com.br"
-                    echo -e "  - https://personalapi.infinityitsolutions.com.br"
-                    echo -e "  - https://wedding.infinityitsolutions.com.br"
-                else
-                    echo -e "${RED}✗ Nginx falhou ao iniciar. Voltando para HTTP...${NC}"
-                    cp nginx/conf.d/default.conf.nossl nginx/conf.d/default.conf
-                    docker-compose restart nginx
-                fi
+            # Gerar certificado
+            echo -e "${YELLOW}Gerando certificado SSL para $DOMAIN...${NC}"
+            docker run --rm \
+                -v $INFRA_DIR/certbot/conf:/etc/letsencrypt \
+                -v $INFRA_DIR/certbot/www:/var/www/certbot \
+                certbot/certbot certonly --webroot \
+                -w /var/www/certbot \
+                -d $DOMAIN \
+                -d www.$DOMAIN \
+                --email contato@infinityitsolutions.com.br \
+                --agree-tos \
+                --no-eff-email \
+                --non-interactive
+
+            # Verificar se certificado foi gerado
+            if [ ! -d "certbot/conf/live/$DOMAIN" ]; then
+                echo -e "${RED}✗ Falha ao gerar certificado para $DOMAIN${NC}"
+                echo -e "${YELLOW}Possíveis causas:${NC}"
+                echo "  - DNS não está apontando para este servidor"
+                echo "  - Domínio não está acessível pela internet"
+                echo "  - Limite de requisições Let's Encrypt atingido"
+                echo ""
+                echo -e "${YELLOW}O site permanece desabilitado. Outros sites continuam funcionando.${NC}"
+                exit 1
             fi
         fi
+
+        echo -e "${GREEN}✓ Certificado OK${NC}"
+
+        # Verificar se existe config em sites-available
+        if [ -f "nginx/sites-available/${SITE_NAME}.conf" ]; then
+            echo -e "${YELLOW}Habilitando configuração do site...${NC}"
+            cp "nginx/sites-available/${SITE_NAME}.conf" "nginx/conf.d/${SITE_NAME}.conf"
+        else
+            echo -e "${YELLOW}Config não encontrada em sites-available/${SITE_NAME}.conf${NC}"
+            echo -e "${YELLOW}Criando config a partir do template...${NC}"
+
+            if [ -f "nginx/templates/wedding-site.conf.template" ]; then
+                # Substituir placeholders no template
+                sed -e "s/{{DOMAIN}}/$DOMAIN/g" \
+                    -e "s/{{SITE_NAME}}/$SITE_NAME/g" \
+                    -e "s/{{UPSTREAM}}/$SITE_NAME/g" \
+                    "nginx/templates/wedding-site.conf.template" > "nginx/conf.d/${SITE_NAME}.conf"
+
+                # Salvar também em sites-available para referência
+                cp "nginx/conf.d/${SITE_NAME}.conf" "nginx/sites-available/${SITE_NAME}.conf"
+            else
+                echo -e "${RED}✗ Template não encontrado${NC}"
+                exit 1
+            fi
+        fi
+
+        # Testar configuração do nginx
+        echo -e "${YELLOW}Testando configuração do nginx...${NC}"
+        docker compose restart nginx
+        sleep 2
+
+        if docker ps | grep -q nginx-proxy; then
+            echo -e "${GREEN}✓ Site $DOMAIN habilitado com sucesso!${NC}"
+            echo -e "${GREEN}  https://$DOMAIN${NC}"
+        else
+            echo -e "${RED}✗ Nginx falhou ao iniciar${NC}"
+            echo -e "${YELLOW}Removendo config problemática...${NC}"
+            rm -f "nginx/conf.d/${SITE_NAME}.conf"
+            docker compose restart nginx
+            echo -e "${YELLOW}Config removida. Outros sites continuam funcionando.${NC}"
+            exit 1
+        fi
         ;;
-    
+
+    ssl-remove)
+        DOMAIN="$2"
+        if [ -z "$DOMAIN" ]; then
+            echo -e "${RED}Erro: Domínio não especificado${NC}"
+            echo "Uso: ./manage.sh ssl-remove <dominio>"
+            exit 1
+        fi
+
+        SITE_NAME=$(get_site_name "$DOMAIN")
+        echo -e "${BLUE}Desabilitando site ${DOMAIN}...${NC}"
+        cd $INFRA_DIR
+
+        if [ -f "nginx/conf.d/${SITE_NAME}.conf" ]; then
+            # Mover para sites-available (backup)
+            mv "nginx/conf.d/${SITE_NAME}.conf" "nginx/sites-available/${SITE_NAME}.conf"
+            docker compose restart nginx
+            echo -e "${GREEN}✓ Site $DOMAIN desabilitado${NC}"
+            echo -e "${YELLOW}  Config salva em nginx/sites-available/${SITE_NAME}.conf${NC}"
+            echo -e "${YELLOW}  Certificado mantido em certbot/conf/live/$DOMAIN/${NC}"
+        else
+            echo -e "${YELLOW}Site $DOMAIN já está desabilitado${NC}"
+        fi
+        ;;
+
+    ssl-list)
+        echo -e "${BLUE}Sites configurados:${NC}"
+        echo ""
+        cd $INFRA_DIR
+
+        echo -e "${GREEN}Habilitados (nginx/conf.d/):${NC}"
+        for f in nginx/conf.d/*.conf; do
+            if [ -f "$f" ]; then
+                name=$(basename "$f" .conf)
+                # Ignorar arquivos base
+                if [[ "$name" != "00-base" && "$name" != "01-certbot" ]]; then
+                    echo "  ✓ $name"
+                fi
+            fi
+        done
+
+        echo ""
+        echo -e "${YELLOW}Desabilitados (nginx/sites-available/):${NC}"
+        for f in nginx/sites-available/*.conf; do
+            if [ -f "$f" ]; then
+                name=$(basename "$f" .conf)
+                # Verificar se não está habilitado
+                if [ ! -f "nginx/conf.d/${name}.conf" ]; then
+                    echo "  ○ $name"
+                fi
+            fi
+        done
+
+        echo ""
+        echo -e "${BLUE}Certificados existentes:${NC}"
+        if [ -d "certbot/conf/live" ]; then
+            for d in certbot/conf/live/*/; do
+                if [ -d "$d" ]; then
+                    domain=$(basename "$d")
+                    if [ "$domain" != "README" ]; then
+                        echo "  🔒 $domain"
+                    fi
+                fi
+            done
+        else
+            echo "  Nenhum certificado encontrado"
+        fi
+        ;;
+
     ssl-renew)
         echo -e "${BLUE}Renovando certificados SSL...${NC}"
         cd $INFRA_DIR
@@ -311,48 +388,27 @@ case "$1" in
             -v $INFRA_DIR/certbot/conf:/etc/letsencrypt \
             -v $INFRA_DIR/certbot/www:/var/www/certbot \
             certbot/certbot renew
-        docker-compose restart nginx
+        docker compose restart nginx
         echo -e "${GREEN}Certificados renovados${NC}"
         ;;
 
-    ssl-restore)
-        echo -e "${BLUE}Restaurando configuração SSL...${NC}"
-        cd $INFRA_DIR
-        if [ -f nginx/conf.d/default.conf.ssl ]; then
-            cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf
-            docker-compose restart nginx
-            sleep 2
-            if docker ps | grep -q nginx-proxy; then
-                echo -e "${GREEN}✓ Configuração SSL restaurada!${NC}"
-            else
-                echo -e "${RED}✗ Nginx falhou. Voltando para HTTP...${NC}"
-                cp nginx/conf.d/default.conf.nossl nginx/conf.d/default.conf
-                docker-compose restart nginx
-            fi
-        else
-            echo -e "${YELLOW}Usando git checkout...${NC}"
-            git checkout nginx/conf.d/default.conf
-            docker-compose restart nginx
-            echo -e "${GREEN}✓ Configuração restaurada via git${NC}"
-        fi
-        ;;
-    
     ssl-status)
-        echo -e "${BLUE}Status do certificado SSL:${NC}"
+        echo -e "${BLUE}Status dos certificados SSL:${NC}"
+        cd $INFRA_DIR
         docker run --rm -v $INFRA_DIR/certbot/conf:/etc/letsencrypt certbot/certbot certificates
         ;;
-    
+
     cleanup)
         echo -e "${YELLOW}Removendo containers parados e imagens não utilizadas...${NC}"
         docker system prune -f
         echo -e "${GREEN}Limpeza concluída${NC}"
         docker system df
         ;;
-    
+
     disk)
         docker system df
         ;;
-    
+
     *)
         show_help
         ;;

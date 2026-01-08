@@ -1,0 +1,14 @@
+# ===========================================
+# ARQUIVO DEPRECADO - NÃO USAR
+# ===========================================
+# Este arquivo foi substituído pela estrutura modular:
+# - 00-base.conf (upstreams e rate limits)
+# - 01-certbot.conf (HTTP para certbot)
+# - infinityitsolutions.conf
+# - personalweb.conf
+# - personalapi.conf
+# - wedding.conf
+# - (outros sites em sites-available/)
+#
+# Para habilitar novos sites: ./manage.sh ssl-add <dominio>
+# ===========================================
