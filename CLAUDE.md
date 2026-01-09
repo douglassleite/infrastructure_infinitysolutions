@@ -7,6 +7,8 @@ Infraestrutura Docker centralizada para todos os projetos da Infinity IT Solutio
 ```
 infrastructure_infinitysolutions/     <- APENAS INFRA
 ├── nginx + certbot + postgres + redis
+├── deploy.sh                         <- Deploy completo do zero
+├── cleanup-server.sh                 <- Backup e limpeza
 
 evolly/                               <- Projeto separado (sistema de eventos)
 ├── docker-compose.yml proprio
@@ -14,10 +16,58 @@ evolly/                               <- Projeto separado (sistema de eventos)
 web_infinitysolutions/                <- Projeto separado (site institucional)
 ├── docker-compose.yml proprio
 
+personal_trainer_backend/             <- API Personal Trainer
+├── docker-compose.prod.yml proprio
+
+personal_trainer_web/                 <- Frontend Personal Trainer
+├── docker-compose.prod.yml proprio
+
 evolly-clients/                       <- Sites de clientes Evolly
-├── vanessaemarlo/
-├── outrocasal/
-└── deploy-client.sh
+├── clients.conf                      <- Lista de clientes para deploy automatico
+├── deploy-client.sh
+└── vanessaemarlo/
+```
+
+## Deploy Completo (Do Zero)
+
+O `deploy.sh` faz deploy automatico de toda a infraestrutura:
+
+```bash
+# 1. Cleanup opcional (faz backup antes de deletar tudo)
+./cleanup-server.sh
+
+# 2. Clone e deploy
+git clone git@github.com:douglassleite/infrastructure_infinitysolutions.git
+cd infrastructure_infinitysolutions
+./deploy.sh
+```
+
+### O que o deploy.sh faz:
+
+1. Instala Docker se necessario
+2. Cria estrutura de diretorios
+3. Clona todos os repositorios (web, personal trainer, evolly, evolly-clients)
+4. Cria redes Docker
+5. Inicia PostgreSQL e Redis
+6. Configura bancos de dados (personal_trainer_db, evolly_db)
+7. Build e deploy de cada projeto
+8. Deploy automatico de clientes Evolly (do clients.conf)
+9. Inicia Nginx em modo HTTP
+10. Gera certificados SSL para todos os dominios
+11. Ativa HTTPS e reinicia Nginx
+
+### Requisitos de Rede
+
+**IMPORTANTE:** Todos os projetos devem estar na rede `infinityitsolutions-network`:
+
+```yaml
+# Em cada docker-compose.yml
+networks:
+  - infinityitsolutions-network
+
+networks:
+  infinityitsolutions-network:
+    external: true
 ```
 
 ## Configuracao
@@ -26,7 +76,7 @@ evolly-clients/                       <- Sites de clientes Evolly
 |------|-------|
 | Nginx | Porta 80/443 |
 | PostgreSQL | Porta 5432 |
-| Redis | Porta 6379 |
+| Redis | Porta 6378 (externo) / 6379 (interno) |
 | Rede | infinityitsolutions-network |
 
 ## Estrutura do Projeto
@@ -35,21 +85,20 @@ evolly-clients/                       <- Sites de clientes Evolly
 infrastructure_infinitysolutions/
 ├── docker-compose.yml          # Compose principal (apenas infra)
 ├── docker-compose.local.yml    # Desenvolvimento local
-├── .env                        # Variaveis de ambiente
+├── deploy.sh                   # Deploy completo automatizado
+├── cleanup-server.sh           # Backup e limpeza do servidor
 ├── manage.sh                   # Script de gerenciamento
+├── .env                        # Variaveis de ambiente
 ├── nginx/
 │   ├── nginx.conf              # Config principal
 │   ├── conf.d/                 # Configs estaticas dos sites
 │   │   ├── 00-base.conf        # Upstreams
 │   │   ├── 01-certbot.conf     # HTTP + certbot
-│   │   ├── infinityitsolutions.conf
-│   │   ├── personalweb.conf
-│   │   ├── personalapi.conf
-│   │   └── evolly.conf
+│   │   ├── default.conf.nossl  # Config HTTP (sem SSL)
+│   │   └── default.conf.ssl    # Config HTTPS (com SSL)
 │   ├── sites/                  # Configs dinamicas (clientes evolly)
 │   │   └── vanessaemarlo.conf
-│   ├── sites-available/        # Configs desabilitadas
-│   └── templates/              # Templates para novos sites
+│   └── sites-disabled/         # Configs temporariamente desabilitadas
 ├── certbot/
 │   ├── conf/                   # Certificados SSL
 │   └── www/                    # Challenge ACME
@@ -63,20 +112,27 @@ infrastructure_infinitysolutions/
 |-----------|-------|-----------|
 | nginx-proxy | 80, 443 | Proxy reverso e SSL |
 | infinity-postgres-db | 5432 | Banco de dados |
-| infinity-redis-cache | 6379 | Cache |
-| certbot | - | Renovacao SSL |
+| infinity-redis-cache | 6378 | Cache |
+| certbot | - | Geracao/renovacao SSL |
 
 ## Projetos Externos (docker-compose proprio)
 
 | Projeto | Container | Porta | Repositorio |
 |---------|-----------|-------|-------------|
-| Evolly | evolly | 8004 | ../evolly |
-| Website | infinity-website | 80 | ../web_infinitysolutions |
-| Personal Trainer API | personal-trainer-backend | 3001 | Separado |
-| Personal Trainer Web | personal-trainer-web | 3000 | Separado |
-| Clientes Evolly | evolly-* | 80 | ../evolly-clients |
+| Website | infinityit-website | 80 | web_infinitysolutions |
+| Personal Trainer API | personal-trainer-backend | 3001 | personal_trainer_backend |
+| Personal Trainer Web | personal-trainer-web | 3000 | personal_trainer_web |
+| Evolly | evolly | 8004 | evolly |
+| Clientes Evolly | evolly-* | 80 | evolly-clients |
 
 ## Comandos Principais
+
+### Deploy e Cleanup
+
+```bash
+./deploy.sh              # Deploy completo do zero
+./cleanup-server.sh      # Backup e limpeza (DELETA TUDO!)
+```
 
 ### Gerenciamento Geral
 
@@ -102,6 +158,7 @@ docker exec nginx-proxy nginx -s reload  # Recarregar
 ```bash
 ./manage.sh db-shell            # PostgreSQL shell
 ./manage.sh redis-shell         # Redis shell
+./manage.sh db-evolly           # Acessar banco evolly_db
 ```
 
 ### Gerenciamento de SSL/Dominios
@@ -114,22 +171,19 @@ docker exec nginx-proxy nginx -s reload  # Recarregar
 ./manage.sh ssl-status             # Status dos certificados
 ```
 
-## Arquitetura Nginx
+## Clientes Evolly
 
-### Estrutura de Configs
+### Deploy Automatico
 
+Clientes listados em `evolly-clients/clients.conf` sao deployados automaticamente pelo `deploy.sh`:
+
+```bash
+# Formato: nome|tipo|dominio|modelo
+vanessaemarlo|custom|vanessaemarlo.com.br|modelo-9
+novocliente|subdomain|novocliente|modelo-5
 ```
-nginx/
-├── conf.d/           # Configs estaticas (sempre ativas)
-│   ├── 00-base.conf  # Upstreams
-│   └── *.conf        # Sites fixos
-└── sites/            # Configs dinamicas (clientes evolly)
-    └── *.conf        # Geradas por evolly-clients/deploy-client.sh
-```
 
-### Adicionar Novo Cliente Evolly
-
-Usar o script em `../evolly-clients/deploy-client.sh`:
+### Deploy Manual
 
 ```bash
 cd ../evolly-clients
@@ -156,8 +210,23 @@ POSTGRES_USER=infinityitsolutions
 POSTGRES_PASSWORD=xxxxx
 POSTGRES_DB=infinitysolutions_db
 
+# Personal Trainer
+PERSONAL_TRAINER_DB=personal_trainer_db
+PERSONAL_TRAINER_USER=personal_trainer
+PERSONAL_TRAINER_PASSWORD=xxxxx
+
+# Evolly
+EVOLLY_DB=evolly_db
+EVOLLY_USER=evolly
+EVOLLY_PASSWORD=xxxxx
+
 # Redis
 REDIS_PASSWORD=xxxxx
+
+# JWT (gerados automaticamente)
+JWT_SECRET=xxxxx
+JWT_REFRESH_SECRET=xxxxx
+EVOLLY_JWT_SECRET=xxxxx
 ```
 
 ## Dominios Configurados
@@ -172,25 +241,51 @@ REDIS_PASSWORD=xxxxx
 
 ## Redes Docker
 
+**IMPORTANTE:** Todos os containers devem estar na rede `infinityitsolutions-network` para que o nginx possa se comunicar com eles.
+
 | Rede | Uso |
 |------|-----|
-| infinityitsolutions-network | Rede principal compartilhada |
-| personal_trainer_infrastructure_app-network | Personal Trainer backend |
-| personal-trainer-network | Personal Trainer frontend |
+| infinityitsolutions-network | **Rede principal (OBRIGATORIA para todos)** |
+| personal_trainer_infrastructure_app-network | Compatibilidade backend |
+| personal-trainer-network | Compatibilidade frontend |
 
 ## Troubleshooting
 
-### Nginx nao inicia
+### Nginx nao inicia (host not found)
+
+Significa que algum container nao esta na rede correta:
 
 ```bash
-# Testar config
-docker exec nginx-proxy nginx -t
+# Verificar containers na rede
+docker network inspect infinityitsolutions-network --format '{{range .Containers}}{{.Name}} {{end}}'
 
-# Ver logs
-docker logs nginx-proxy --tail 50
+# Conectar container manualmente
+docker network connect infinityitsolutions-network <container_name>
 
-# Se certificado nao existe, comentar o site temporariamente
-mv nginx/sites/problema.conf nginx/sites/problema.conf.disabled
+# Reiniciar nginx
+docker restart nginx-proxy
+```
+
+### Nginx nao inicia (certificado nao existe)
+
+O deploy.sh desabilita configs SSL automaticamente se certificados nao existem. Para corrigir manualmente:
+
+```bash
+# Mover config SSL para desabilitado
+mv nginx/sites/problema.conf nginx/sites-disabled/
+
+# Usar config HTTP
+cp nginx/conf.d/default.conf.nossl nginx/conf.d/default.conf
+
+# Reiniciar nginx
+docker compose restart nginx
+
+# Gerar certificado
+docker compose run --rm certbot certonly --webroot -w /var/www/certbot -d dominio.com.br --email seu@email.com --agree-tos --non-interactive
+
+# Restaurar config SSL
+mv nginx/sites-disabled/problema.conf nginx/sites/
+cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf
 docker compose restart nginx
 ```
 
@@ -214,11 +309,27 @@ docker compose up -d
 ./manage.sh restart-nginx
 ```
 
+### Backup e Restauracao
+
+O `cleanup-server.sh` faz backup automatico antes de limpar:
+
+```bash
+# Restaurar banco completo
+cat ~/infinityitsolutions/backups/YYYYMMDD_HHMMSS/all_databases.sql | docker exec -i infinity-postgres-db psql -U infinityitsolutions -d postgres
+
+# Restaurar banco individual
+cat ~/infinityitsolutions/backups/YYYYMMDD_HHMMSS/evolly_db.sql | docker exec -i infinity-postgres-db psql -U evolly -d evolly_db
+
+# Restaurar certificados SSL
+sudo cp -r ~/infinityitsolutions/backups/YYYYMMDD_HHMMSS/certbot-conf/* certbot/conf/
+```
+
 ## Regras de Manutencao
 
 | Tipo de Alteracao | Arquivo a Atualizar |
 |-------------------|---------------------|
 | Novo servico infra | Este CLAUDE.md e docker-compose.yml |
 | Novo dominio fixo | Este CLAUDE.md e conf.d/ |
-| Novo cliente evolly | Usar deploy-client.sh |
+| Novo cliente evolly | Adicionar em evolly-clients/clients.conf |
+| Mudancas no deploy | Este CLAUDE.md e deploy.sh |
 | Mudancas no nginx | Este CLAUDE.md |
