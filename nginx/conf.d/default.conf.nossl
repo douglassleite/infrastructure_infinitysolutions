@@ -18,7 +18,7 @@ server {
 
     # Site institucional
     location / {
-        set $website_upstream http://infinity-website:80;
+        set $website_upstream http://infinityit-website:80;
         proxy_pass $website_upstream;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -29,7 +29,7 @@ server {
 
     # Health check
     location /health {
-        set $website_health http://infinity-website:80;
+        set $website_health http://infinityit-website:80;
         proxy_pass $website_health/health;
         access_log off;
     }
