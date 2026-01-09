@@ -476,8 +476,8 @@ fi
 if [ "$SSL_EXISTS" = false ]; then
     print_step "Gerando certificados SSL..."
 
-    # Certificados principais
-    docker compose run --rm certbot certonly --webroot \
+    # Certificados principais (--entrypoint certbot sobrescreve o entrypoint de renovação)
+    docker compose run --rm --entrypoint certbot certbot certonly --webroot \
         -w /var/www/certbot \
         -d www.infinityitsolutions.com.br \
         -d infinityitsolutions.com.br \
@@ -486,7 +486,7 @@ if [ "$SSL_EXISTS" = false ]; then
         print_success "SSL: www.infinityitsolutions.com.br" || \
         print_warning "Falha SSL site principal"
 
-    docker compose run --rm certbot certonly --webroot \
+    docker compose run --rm --entrypoint certbot certbot certonly --webroot \
         -w /var/www/certbot \
         -d personalweb.infinityitsolutions.com.br \
         --email contato@infinityitsolutions.com.br \
@@ -494,7 +494,7 @@ if [ "$SSL_EXISTS" = false ]; then
         print_success "SSL: personalweb.infinityitsolutions.com.br" || \
         print_warning "Falha SSL personalweb"
 
-    docker compose run --rm certbot certonly --webroot \
+    docker compose run --rm --entrypoint certbot certbot certonly --webroot \
         -w /var/www/certbot \
         -d personalapi.infinityitsolutions.com.br \
         --email contato@infinityitsolutions.com.br \
@@ -502,7 +502,7 @@ if [ "$SSL_EXISTS" = false ]; then
         print_success "SSL: personalapi.infinityitsolutions.com.br" || \
         print_warning "Falha SSL personalapi"
 
-    docker compose run --rm certbot certonly --webroot \
+    docker compose run --rm --entrypoint certbot certbot certonly --webroot \
         -w /var/www/certbot \
         -d evolly.infinityitsolutions.com.br \
         --email contato@infinityitsolutions.com.br \
@@ -518,7 +518,7 @@ if [ "$SSL_EXISTS" = false ]; then
             [[ -z "$client_name" ]] && continue
 
             if [ "$domain_type" == "custom" ]; then
-                docker compose run --rm certbot certonly --webroot \
+                docker compose run --rm --entrypoint certbot certbot certonly --webroot \
                     -w /var/www/certbot \
                     -d "$domain_value" \
                     -d "www.$domain_value" \
@@ -528,7 +528,7 @@ if [ "$SSL_EXISTS" = false ]; then
                     print_warning "Falha SSL $domain_value"
             else
                 # Subdominio
-                docker compose run --rm certbot certonly --webroot \
+                docker compose run --rm --entrypoint certbot certbot certonly --webroot \
                     -w /var/www/certbot \
                     -d "${domain_value}.infinityitsolutions.com.br" \
                     --email contato@infinityitsolutions.com.br \
