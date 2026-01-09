@@ -196,7 +196,7 @@ case "$1" in
         ;;
 
     db-evolly)
-        docker exec -it infinity-postgres-db psql -U wedding -d wedding_system
+        docker exec -it infinity-postgres-db psql -U evolly -d evolly_db
         ;;
 
     redis-shell)
@@ -280,12 +280,12 @@ case "$1" in
             echo -e "${YELLOW}Config não encontrada em sites-available/${SITE_NAME}.conf${NC}"
             echo -e "${YELLOW}Criando config a partir do template...${NC}"
 
-            if [ -f "nginx/templates/wedding-site.conf.template" ]; then
+            if [ -f "nginx/templates/evolly-site.conf.template" ]; then
                 # Substituir placeholders no template
                 sed -e "s/{{DOMAIN}}/$DOMAIN/g" \
                     -e "s/{{SITE_NAME}}/$SITE_NAME/g" \
                     -e "s/{{UPSTREAM}}/$SITE_NAME/g" \
-                    "nginx/templates/wedding-site.conf.template" > "nginx/conf.d/${SITE_NAME}.conf"
+                    "nginx/templates/evolly-site.conf.template" > "nginx/conf.d/${SITE_NAME}.conf"
 
                 # Salvar também em sites-available para referência
                 cp "nginx/conf.d/${SITE_NAME}.conf" "nginx/sites-available/${SITE_NAME}.conf"

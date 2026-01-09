@@ -92,11 +92,11 @@ server {
 }
 
 # ===========================================
-# Evolly - wedding.infinityitsolutions.com.br
+# Evolly - evolly.infinityitsolutions.com.br
 # ===========================================
 server {
     listen 80;
-    server_name wedding.infinityitsolutions.com.br;
+    server_name evolly.infinityitsolutions.com.br;
 
     # Certbot challenge
     location /.well-known/acme-challenge/ {

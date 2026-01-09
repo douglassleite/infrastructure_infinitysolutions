@@ -22,7 +22,7 @@ upstream evolly {
 # Redirect HTTP to HTTPS - Todos os domínios
 server {
     listen 80;
-    server_name www.infinityitsolutions.com.br infinityitsolutions.com.br personalweb.infinityitsolutions.com.br personalapi.infinityitsolutions.com.br wedding.infinityitsolutions.com.br;
+    server_name www.infinityitsolutions.com.br infinityitsolutions.com.br personalweb.infinityitsolutions.com.br personalapi.infinityitsolutions.com.br evolly.infinityitsolutions.com.br;
 
     # Certbot challenge
     location /.well-known/acme-challenge/ {
@@ -210,15 +210,15 @@ server {
 }
 
 # ===========================================
-# Evolly - wedding.infinityitsolutions.com.br
+# Evolly - evolly.infinityitsolutions.com.br
 # ===========================================
 server {
     listen 443 ssl http2;
-    server_name wedding.infinityitsolutions.com.br;
+    server_name evolly.infinityitsolutions.com.br;
 
     # SSL Configuration
-    ssl_certificate /etc/letsencrypt/live/wedding.infinityitsolutions.com.br/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/wedding.infinityitsolutions.com.br/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/evolly.infinityitsolutions.com.br/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/evolly.infinityitsolutions.com.br/privkey.pem;
 
     # SSL Settings
     ssl_session_timeout 1d;
