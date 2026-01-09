@@ -403,7 +403,8 @@ case "$1" in
 
     change-evolly-domain)
         NEW_DOMAIN="$2"
-        OLD_DOMAIN="evolly.infinityitsolutions.com.br"
+        # Detectar dominio atual do evolly no config
+        OLD_DOMAIN=$(grep -A 2 "# Evolly -" nginx/conf.d/default.conf.ssl 2>/dev/null | grep server_name | sed 's/.*server_name \([^ ;]*\).*/\1/' || echo "evolly.com.br")
 
         if [ -z "$NEW_DOMAIN" ]; then
             echo -e "${RED}Erro: Novo domínio não especificado${NC}"
@@ -436,21 +437,27 @@ case "$1" in
         echo -e "${GREEN}Fazendo backup da configuração...${NC}"
         cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf.ssl.backup.$(date +%Y%m%d_%H%M%S)
 
-        # Atualizar server_name do evolly
+        # Atualizar server_name do evolly (seção HTTPS)
         echo -e "${GREEN}Atualizando configuração nginx...${NC}"
-        sed -i.bak "s|server_name evolly.infinityitsolutions.com.br;|server_name $NEW_DOMAIN www.$NEW_DOMAIN;|g" nginx/conf.d/default.conf.ssl
+
+        # Atualizar server_name na seção Evolly
+        sed -i.bak "s|server_name $OLD_DOMAIN.*|server_name $NEW_DOMAIN www.$NEW_DOMAIN;|g" nginx/conf.d/default.conf.ssl
 
         # Atualizar certificados SSL
-        sed -i.bak "s|/etc/letsencrypt/live/evolly.infinityitsolutions.com.br/|/etc/letsencrypt/live/$NEW_DOMAIN/|g" nginx/conf.d/default.conf.ssl
+        sed -i.bak "s|/etc/letsencrypt/live/$OLD_DOMAIN/|/etc/letsencrypt/live/$NEW_DOMAIN/|g" nginx/conf.d/default.conf.ssl
 
-        # Adicionar novo domínio ao bloco HTTP redirect (linha do server_name)
-        if ! grep -q "$NEW_DOMAIN" nginx/conf.d/default.conf.ssl; then
-            # Já foi atualizado pelo sed acima
-            echo -e "${GREEN}Domínio atualizado na configuração${NC}"
+        # Atualizar comentário da seção
+        sed -i.bak "s|# Evolly - $OLD_DOMAIN|# Evolly - $NEW_DOMAIN|g" nginx/conf.d/default.conf.ssl
+
+        # Atualizar bloco HTTP redirect (substituir dominio antigo pelo novo)
+        sed -i.bak "s|$OLD_DOMAIN|$NEW_DOMAIN|g" nginx/conf.d/default.conf.ssl
+
+        # Garantir que www está incluído no redirect HTTP
+        if ! grep -q "www.$NEW_DOMAIN" nginx/conf.d/default.conf.ssl; then
+            sed -i.bak "s|$NEW_DOMAIN;|$NEW_DOMAIN www.$NEW_DOMAIN;|g" nginx/conf.d/default.conf.ssl
         fi
 
-        # Adicionar ao HTTP redirect block (primeira ocorrência de server_name com listen 80)
-        sed -i.bak "s|server_name www.infinityitsolutions.com.br infinityitsolutions.com.br personalweb.infinityitsolutions.com.br personalapi.infinityitsolutions.com.br evolly.infinityitsolutions.com.br;|server_name www.infinityitsolutions.com.br infinityitsolutions.com.br personalweb.infinityitsolutions.com.br personalapi.infinityitsolutions.com.br $NEW_DOMAIN www.$NEW_DOMAIN;|g" nginx/conf.d/default.conf.ssl
+        echo -e "${GREEN}Domínio atualizado na configuração${NC}"
 
         # Gerar certificado SSL
         echo -e "${GREEN}Gerando certificado SSL para $NEW_DOMAIN...${NC}"

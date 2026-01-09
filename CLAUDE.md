@@ -178,8 +178,8 @@ docker exec nginx-proxy nginx -s reload  # Recarregar
 ### Mudar Domínio do Evolly Admin
 
 ```bash
-# Mudar de evolly.infinityitsolutions.com.br para evolly.com.br
-./manage.sh change-evolly-domain evolly.com.br
+# Exemplo: mudar para um novo dominio
+./manage.sh change-evolly-domain <novo-dominio>
 ```
 
 O script automaticamente:
@@ -255,7 +255,7 @@ EVOLLY_JWT_SECRET=xxxxx
 | infinityitsolutions.com.br | Site institucional | conf.d/ |
 | personalweb.infinityitsolutions.com.br | Personal Trainer Web | conf.d/ |
 | personalapi.infinityitsolutions.com.br | Personal Trainer API | conf.d/ |
-| evolly.infinityitsolutions.com.br | Evolly Admin | conf.d/ |
+| evolly.com.br | Evolly Admin | conf.d/ |
 | vanessaemarlo.com.br | Cliente Evolly | sites/ |
 
 ## Redes Docker

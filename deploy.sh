@@ -7,7 +7,7 @@
 # - Infra (Nginx, PostgreSQL, Redis, Certbot)
 # - Site institucional (www.infinityitsolutions.com.br)
 # - Personal Trainer App (personalweb/personalapi)
-# - Evolly (evolly.infinityitsolutions.com.br)
+# - Evolly (evolly.com.br)
 # - Evolly Clients (sites de clientes)
 # ===========================================
 
@@ -523,10 +523,10 @@ if [ "$SSL_EXISTS" = false ]; then
 
     docker compose run --rm --entrypoint certbot certbot certonly --webroot \
         -w /var/www/certbot \
-        -d evolly.infinityitsolutions.com.br \
+        -d evolly.com.br \
         --email contato@infinityitsolutions.com.br \
         --agree-tos --no-eff-email --non-interactive && \
-        print_success "SSL: evolly.infinityitsolutions.com.br" || \
+        print_success "SSL: evolly.com.br" || \
         print_warning "Falha SSL evolly"
 
     # Certificados dos clientes Evolly
@@ -608,7 +608,7 @@ echo "URLs:"
 echo "  - Site Principal: https://www.infinityitsolutions.com.br"
 echo "  - Personal Web:   https://personalweb.infinityitsolutions.com.br"
 echo "  - Personal API:   https://personalapi.infinityitsolutions.com.br"
-echo "  - Evolly:         https://evolly.infinityitsolutions.com.br"
+echo "  - Evolly:         https://evolly.com.br"
 echo ""
 echo "Projetos:"
 echo "  - Infra:          $INFRA_DIR"
