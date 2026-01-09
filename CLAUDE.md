@@ -97,12 +97,9 @@ infrastructure_infinitysolutions/
 │   ├── conf.d/                 # Configs estaticas dos sites
 │   │   ├── 00-base.conf        # Upstreams
 │   │   ├── 01-certbot.conf     # HTTP + certbot
-│   │   ├── default.conf.nossl  # Config HTTP (sem SSL)
-│   │   ├── default.conf.ssl    # Config HTTPS (com SSL)
-│   │   ├── evolly.conf         # SSL para evolly (desabilitado em modo HTTP)
-│   │   ├── personalapi.conf    # SSL para API (desabilitado em modo HTTP)
-│   │   └── personalweb.conf    # SSL para Web (desabilitado em modo HTTP)
-│   ├── conf.d-disabled/        # Configs SSL desabilitadas temporariamente
+│   │   ├── default.conf.nossl  # Config HTTP (todos os sites, sem SSL)
+│   │   └── default.conf.ssl    # Config HTTPS (todos os sites, com SSL)
+│   ├── conf.d-disabled/        # Configs temporariamente desabilitadas
 │   ├── sites/                  # Configs dinamicas (clientes evolly)
 │   │   └── vanessaemarlo.conf
 │   └── sites-disabled/         # Configs de sites temporariamente desabilitadas
