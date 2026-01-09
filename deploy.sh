@@ -463,18 +463,16 @@ if [ "$SSL_EXISTS" = false ]; then
         print_success "Configuração HTTP aplicada"
     fi
 else
-    # Usar config HTTPS
+    # Usar config HTTPS (default.conf.ssl já contém TODOS os server blocks)
     if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.ssl" ]; then
         cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
         print_success "Configuração HTTPS aplicada"
     fi
 
-    # Restaurar configs SSL individuais se estiverem desabilitadas
+    # Remover configs SSL individuais duplicadas (já estão em default.conf.ssl)
     for conf_name in $SSL_CONFIGS; do
-        if [ -f "$CONFD_DISABLED_DIR/$conf_name" ]; then
-            mv "$CONFD_DISABLED_DIR/$conf_name" "$INFRA_DIR/nginx/conf.d/"
-            print_success "Config SSL restaurada: $conf_name"
-        fi
+        rm -f "$INFRA_DIR/nginx/conf.d/$conf_name" 2>/dev/null
+        rm -f "$CONFD_DISABLED_DIR/$conf_name" 2>/dev/null
     done
 fi
 
@@ -564,20 +562,19 @@ if [ "$SSL_EXISTS" = false ]; then
     if cert_exists "www.infinityitsolutions.com.br"; then
         print_success "Certificados SSL gerados!"
 
-        # Aplicar configuração HTTPS
+        # Aplicar configuração HTTPS (default.conf.ssl já contém TODOS os server blocks)
         if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.ssl" ]; then
             cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
         fi
 
-        # Restaurar configs SSL individuais de conf.d-disabled/
+        # NOTA: NÃO restaurar configs SSL individuais (evolly.conf, personalapi.conf, etc.)
+        # pois default.conf.ssl já contém todos os server blocks.
+        # Apenas deletar os arquivos desabilitados para evitar confusão futura.
         for conf_name in $SSL_CONFIGS; do
-            if [ -f "$CONFD_DISABLED_DIR/$conf_name" ]; then
-                mv "$CONFD_DISABLED_DIR/$conf_name" "$INFRA_DIR/nginx/conf.d/"
-                print_success "Config SSL restaurada: $conf_name"
-            fi
+            rm -f "$CONFD_DISABLED_DIR/$conf_name" 2>/dev/null
         done
 
-        # Restaurar configs de sites
+        # Restaurar configs de sites (clientes Evolly - estes são únicos)
         for conf in "$SITES_DISABLED_DIR"/*.conf; do
             if [ -f "$conf" ]; then
                 site_name=$(basename "$conf" .conf)
