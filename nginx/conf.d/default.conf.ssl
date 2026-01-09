@@ -1,23 +1,7 @@
-# Upstream servers
-upstream backend {
-    server personal-trainer-backend:3001;
-    keepalive 32;
-}
-
-upstream frontend {
-    server personal-trainer-web:3000;
-    keepalive 32;
-}
-
-upstream website {
-    server infinityit-website:80;
-    keepalive 32;
-}
-
-upstream evolly {
-    server evolly:8004;
-    keepalive 32;
-}
+# ===========================================
+# Configuração SSL - Todos os sites
+# Upstreams definidos em 00-base.conf
+# ===========================================
 
 # Redirect HTTP to HTTPS - Todos os domínios
 server {
