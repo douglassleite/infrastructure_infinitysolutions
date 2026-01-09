@@ -16,7 +16,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 INFRA_DIR="$SCRIPT_DIR"
 WEBSITE_DIR="$ROOT_DIR/website"
 PERSONAL_DIR="$ROOT_DIR/apps/personal-trainer"
-EVOLLY_DIR="$ROOT_DIR/apps/evolly"
+EVOLLY_DIR="$ROOT_DIR/evolly"
 
 show_help() {
     echo ""
@@ -133,8 +133,8 @@ case "$1" in
 
     restart-evolly)
         echo -e "${BLUE}Reiniciando Evolly...${NC}"
-        cd $INFRA_DIR
-        docker compose restart evolly
+        cd $EVOLLY_DIR
+        docker compose restart
         echo -e "${GREEN}Evolly reiniciado${NC}"
         ;;
 
@@ -179,9 +179,9 @@ case "$1" in
         echo -e "${BLUE}Atualizando Evolly...${NC}"
         cd $EVOLLY_DIR
         git pull
-        cd $INFRA_DIR
-        docker compose build evolly
-        docker compose up -d evolly
+        echo -e "${YELLOW}Rebuilding container...${NC}"
+        docker compose down
+        docker compose up -d --build
         echo -e "${YELLOW}Executando migrations...${NC}"
         docker exec evolly npm run migrate
         echo -e "${GREEN}Evolly atualizado${NC}"
