@@ -175,6 +175,21 @@ docker exec nginx-proxy nginx -s reload  # Recarregar
 ./manage.sh ssl-status             # Status dos certificados
 ```
 
+### Mudar Domínio do Evolly Admin
+
+```bash
+# Mudar de evolly.infinityitsolutions.com.br para evolly.com.br
+./manage.sh change-evolly-domain evolly.com.br
+```
+
+O script automaticamente:
+1. Faz backup da configuração atual
+2. Atualiza o nginx (server_name e certificados)
+3. Gera novo certificado SSL
+4. Recarrega o nginx
+
+**IMPORTANTE:** Configure o DNS do novo domínio ANTES de executar o comando.
+
 ## Clientes Evolly
 
 ### Deploy Automatico

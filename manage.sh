@@ -59,6 +59,9 @@ show_help() {
     echo -e "  ${GREEN}ssl-renew${NC}           - Renovar todos os certificados SSL"
     echo -e "  ${GREEN}ssl-status${NC}          - Ver status dos certificados SSL"
     echo ""
+    echo -e "  ${GREEN}change-evolly-domain <novo-dominio>${NC} - Mudar domínio do painel Evolly"
+    echo -e "                                         (ex: change-evolly-domain evolly.com.br)"
+    echo ""
     echo -e "  ${GREEN}cleanup${NC}         - Limpar imagens e containers não utilizados"
     echo -e "  ${GREEN}disk${NC}            - Ver uso de disco do Docker"
     echo ""
@@ -396,6 +399,101 @@ case "$1" in
         echo -e "${BLUE}Status dos certificados SSL:${NC}"
         cd $INFRA_DIR
         docker run --rm -v $INFRA_DIR/certbot/conf:/etc/letsencrypt certbot/certbot certificates
+        ;;
+
+    change-evolly-domain)
+        NEW_DOMAIN="$2"
+        OLD_DOMAIN="evolly.infinityitsolutions.com.br"
+
+        if [ -z "$NEW_DOMAIN" ]; then
+            echo -e "${RED}Erro: Novo domínio não especificado${NC}"
+            echo "Uso: ./manage.sh change-evolly-domain <novo-dominio>"
+            echo "Exemplo: ./manage.sh change-evolly-domain evolly.com.br"
+            exit 1
+        fi
+
+        echo ""
+        echo -e "${YELLOW}============================================${NC}"
+        echo -e "${YELLOW}  Mudança de Domínio do Evolly Admin${NC}"
+        echo -e "${YELLOW}============================================${NC}"
+        echo ""
+        echo -e "Domínio antigo: ${RED}$OLD_DOMAIN${NC}"
+        echo -e "Domínio novo:   ${GREEN}$NEW_DOMAIN${NC}"
+        echo ""
+        echo -e "${YELLOW}IMPORTANTE: O DNS de $NEW_DOMAIN deve estar apontando para este servidor!${NC}"
+        echo ""
+        read -p "Deseja continuar? (s/N) " -n 1 -r
+        echo ""
+
+        if [[ ! $REPLY =~ ^[Ss]$ ]]; then
+            echo "Operação cancelada."
+            exit 0
+        fi
+
+        cd $INFRA_DIR
+
+        # Backup da config atual
+        echo -e "${GREEN}Fazendo backup da configuração...${NC}"
+        cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf.ssl.backup.$(date +%Y%m%d_%H%M%S)
+
+        # Atualizar server_name do evolly
+        echo -e "${GREEN}Atualizando configuração nginx...${NC}"
+        sed -i.bak "s|server_name evolly.infinityitsolutions.com.br;|server_name $NEW_DOMAIN www.$NEW_DOMAIN;|g" nginx/conf.d/default.conf.ssl
+
+        # Atualizar certificados SSL
+        sed -i.bak "s|/etc/letsencrypt/live/evolly.infinityitsolutions.com.br/|/etc/letsencrypt/live/$NEW_DOMAIN/|g" nginx/conf.d/default.conf.ssl
+
+        # Adicionar novo domínio ao bloco HTTP redirect (linha do server_name)
+        if ! grep -q "$NEW_DOMAIN" nginx/conf.d/default.conf.ssl; then
+            # Já foi atualizado pelo sed acima
+            echo -e "${GREEN}Domínio atualizado na configuração${NC}"
+        fi
+
+        # Adicionar ao HTTP redirect block (primeira ocorrência de server_name com listen 80)
+        sed -i.bak "s|server_name www.infinityitsolutions.com.br infinityitsolutions.com.br personalweb.infinityitsolutions.com.br personalapi.infinityitsolutions.com.br evolly.infinityitsolutions.com.br;|server_name www.infinityitsolutions.com.br infinityitsolutions.com.br personalweb.infinityitsolutions.com.br personalapi.infinityitsolutions.com.br $NEW_DOMAIN www.$NEW_DOMAIN;|g" nginx/conf.d/default.conf.ssl
+
+        # Gerar certificado SSL
+        echo -e "${GREEN}Gerando certificado SSL para $NEW_DOMAIN...${NC}"
+        docker compose run --rm --entrypoint certbot certbot certonly --webroot \
+            -w /var/www/certbot \
+            -d $NEW_DOMAIN \
+            -d www.$NEW_DOMAIN \
+            --email admin@infinityitsolutions.com.br \
+            --agree-tos --non-interactive
+
+        # Verificar se certificado foi gerado
+        if docker compose run --rm --entrypoint "" certbot test -d /etc/letsencrypt/live/$NEW_DOMAIN; then
+            echo -e "${GREEN}✓ Certificado gerado com sucesso${NC}"
+        else
+            echo -e "${RED}✗ Falha ao gerar certificado${NC}"
+            echo -e "${YELLOW}Restaurando backup...${NC}"
+            cp nginx/conf.d/default.conf.ssl.backup.* nginx/conf.d/default.conf.ssl 2>/dev/null || true
+            exit 1
+        fi
+
+        # Testar e reiniciar nginx
+        echo -e "${GREEN}Testando configuração nginx...${NC}"
+        if docker exec nginx-proxy nginx -t; then
+            docker exec nginx-proxy nginx -s reload
+            echo ""
+            echo -e "${GREEN}============================================${NC}"
+            echo -e "${GREEN}  Domínio alterado com sucesso!${NC}"
+            echo -e "${GREEN}============================================${NC}"
+            echo ""
+            echo -e "Novo endereço: ${GREEN}https://$NEW_DOMAIN${NC}"
+            echo ""
+            echo -e "${YELLOW}Lembre-se de atualizar:${NC}"
+            echo "  - Bookmarks e links salvos"
+            echo "  - Documentação (CLAUDE.md)"
+            echo "  - Variáveis de ambiente se houver"
+            echo ""
+        else
+            echo -e "${RED}✗ Configuração nginx inválida${NC}"
+            echo -e "${YELLOW}Restaurando backup...${NC}"
+            cp nginx/conf.d/default.conf.ssl.backup.* nginx/conf.d/default.conf.ssl 2>/dev/null || true
+            docker compose restart nginx
+            exit 1
+        fi
         ;;
 
     cleanup)
