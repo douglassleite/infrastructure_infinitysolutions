@@ -384,7 +384,34 @@ pool.query(\"SELECT COUNT(*) FROM users\").then(r => {
 print_success "Evolly iniciado"
 
 # ===========================================
-# STEP 10: Configure Nginx and SSL
+# STEP 10: Deploy Evolly Clients
+# ===========================================
+print_step "Verificando clientes Evolly para deploy..."
+cd $EVOLLY_CLIENTS_DIR
+
+# Verificar se arquivo de clientes existe
+if [ -f "clients.conf" ]; then
+    # Ler cada linha do arquivo (ignorando comentarios e linhas vazias)
+    while IFS='|' read -r client_name domain_type domain_value model || [ -n "$client_name" ]; do
+        # Ignorar comentarios e linhas vazias
+        [[ "$client_name" =~ ^#.*$ ]] && continue
+        [[ -z "$client_name" ]] && continue
+
+        print_step "Deployando cliente: $client_name"
+
+        # Executar deploy do cliente (sem SSL - sera gerado depois)
+        ./deploy-client.sh "$client_name" "$domain_type" "$domain_value" "$model" --no-ssl || \
+            print_warning "Falha no deploy de $client_name"
+
+    done < "clients.conf"
+
+    print_success "Clientes Evolly processados"
+else
+    print_warning "Arquivo clients.conf nao encontrado em evolly-clients"
+fi
+
+# ===========================================
+# STEP 11: Configure Nginx and SSL
 # ===========================================
 print_step "Configurando Nginx e SSL..."
 cd $INFRA_DIR
@@ -482,6 +509,35 @@ if [ "$SSL_EXISTS" = false ]; then
         --agree-tos --no-eff-email --non-interactive && \
         print_success "SSL: evolly.infinityitsolutions.com.br" || \
         print_warning "Falha SSL evolly"
+
+    # Certificados dos clientes Evolly
+    if [ -f "$EVOLLY_CLIENTS_DIR/clients.conf" ]; then
+        print_step "Gerando SSL para clientes Evolly..."
+        while IFS='|' read -r client_name domain_type domain_value model || [ -n "$client_name" ]; do
+            [[ "$client_name" =~ ^#.*$ ]] && continue
+            [[ -z "$client_name" ]] && continue
+
+            if [ "$domain_type" == "custom" ]; then
+                docker compose run --rm certbot certonly --webroot \
+                    -w /var/www/certbot \
+                    -d "$domain_value" \
+                    -d "www.$domain_value" \
+                    --email contato@infinityitsolutions.com.br \
+                    --agree-tos --no-eff-email --non-interactive && \
+                    print_success "SSL: $domain_value" || \
+                    print_warning "Falha SSL $domain_value"
+            else
+                # Subdominio
+                docker compose run --rm certbot certonly --webroot \
+                    -w /var/www/certbot \
+                    -d "${domain_value}.infinityitsolutions.com.br" \
+                    --email contato@infinityitsolutions.com.br \
+                    --agree-tos --no-eff-email --non-interactive && \
+                    print_success "SSL: ${domain_value}.infinityitsolutions.com.br" || \
+                    print_warning "Falha SSL ${domain_value}.infinityitsolutions.com.br"
+            fi
+        done < "$EVOLLY_CLIENTS_DIR/clients.conf"
+    fi
 
     # Verificar se certificados foram gerados
     if cert_exists "www.infinityitsolutions.com.br"; then
