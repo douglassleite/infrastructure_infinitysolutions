@@ -218,19 +218,20 @@ print_success "Imagens limpas"
 # ===========================================
 print_step "Deletando pastas dos projetos..."
 
-cd "$ROOT_DIR"
+cd "$HOME"
 
 # Manter apenas a pasta de backups
-rm -rf "$ROOT_DIR/infrastructure_infinitysolutions" 2>/dev/null || true
-rm -rf "$ROOT_DIR/web_infinitysolutions" 2>/dev/null || true
-rm -rf "$ROOT_DIR/personal_trainer_backend" 2>/dev/null || true
-rm -rf "$ROOT_DIR/personal_trainer_web" 2>/dev/null || true
-rm -rf "$ROOT_DIR/evolly" 2>/dev/null || true
-rm -rf "$ROOT_DIR/evolly-clients" 2>/dev/null || true
+# Usar sudo pois alguns arquivos podem ser de root (criados por containers)
+sudo rm -rf "$ROOT_DIR/infrastructure_infinitysolutions" 2>/dev/null || true
+sudo rm -rf "$ROOT_DIR/web_infinitysolutions" 2>/dev/null || true
+sudo rm -rf "$ROOT_DIR/personal_trainer_backend" 2>/dev/null || true
+sudo rm -rf "$ROOT_DIR/personal_trainer_web" 2>/dev/null || true
+sudo rm -rf "$ROOT_DIR/evolly" 2>/dev/null || true
+sudo rm -rf "$ROOT_DIR/evolly-clients" 2>/dev/null || true
 
 # Pastas antigas (se existirem)
-rm -rf "$ROOT_DIR/apps" 2>/dev/null || true
-rm -rf "$ROOT_DIR/website" 2>/dev/null || true
+sudo rm -rf "$ROOT_DIR/apps" 2>/dev/null || true
+sudo rm -rf "$ROOT_DIR/website" 2>/dev/null || true
 
 print_success "Pastas deletadas"
 
