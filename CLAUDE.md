@@ -52,9 +52,12 @@ cd infrastructure_infinitysolutions
 6. Configura bancos de dados (personal_trainer_db, evolly_db)
 7. Build e deploy de cada projeto
 8. Deploy automatico de clientes Evolly (do clients.conf)
-9. Inicia Nginx em modo HTTP
-10. Gera certificados SSL para todos os dominios
-11. Ativa HTTPS e reinicia Nginx
+9. Configura Nginx:
+   - Se SSL nao existe: move configs SSL para conf.d-disabled/ e sites-disabled/
+   - Copia default.conf.nossl para default.conf
+   - Inicia Nginx em modo HTTP
+10. Gera certificados SSL para todos os dominios (--entrypoint certbot)
+11. Restaura configs SSL e reinicia Nginx com HTTPS
 
 ### Requisitos de Rede
 
@@ -95,10 +98,14 @@ infrastructure_infinitysolutions/
 │   │   ├── 00-base.conf        # Upstreams
 │   │   ├── 01-certbot.conf     # HTTP + certbot
 │   │   ├── default.conf.nossl  # Config HTTP (sem SSL)
-│   │   └── default.conf.ssl    # Config HTTPS (com SSL)
+│   │   ├── default.conf.ssl    # Config HTTPS (com SSL)
+│   │   ├── evolly.conf         # SSL para evolly (desabilitado em modo HTTP)
+│   │   ├── personalapi.conf    # SSL para API (desabilitado em modo HTTP)
+│   │   └── personalweb.conf    # SSL para Web (desabilitado em modo HTTP)
+│   ├── conf.d-disabled/        # Configs SSL desabilitadas temporariamente
 │   ├── sites/                  # Configs dinamicas (clientes evolly)
 │   │   └── vanessaemarlo.conf
-│   └── sites-disabled/         # Configs temporariamente desabilitadas
+│   └── sites-disabled/         # Configs de sites temporariamente desabilitadas
 ├── certbot/
 │   ├── conf/                   # Certificados SSL
 │   └── www/                    # Challenge ACME
