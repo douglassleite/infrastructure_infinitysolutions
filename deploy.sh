@@ -384,13 +384,28 @@ pool.query(\"SELECT COUNT(*) FROM users\").then(r => {
 print_success "Evolly iniciado"
 
 # ===========================================
-# STEP 10: Start Nginx
+# STEP 10: Restore SSL certificates from backup
 # ===========================================
-print_step "Configurando Nginx..."
+print_step "Verificando certificados SSL..."
 cd $INFRA_DIR
 
-# Verificar se certificados SSL existem
 SSL_CERT_DIR="$INFRA_DIR/certbot/conf/live/www.infinityitsolutions.com.br"
+
+# Se não tem certificados, tentar restaurar do backup
+if ! sudo test -d "$SSL_CERT_DIR" || ! sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
+    LATEST_BACKUP=$(ls -td "$ROOT_DIR/backups"/*/ 2>/dev/null | head -1)
+
+    if [ -n "$LATEST_BACKUP" ] && [ -d "${LATEST_BACKUP}certbot-conf" ]; then
+        print_warning "Restaurando certificados SSL do backup..."
+        sudo cp -r "${LATEST_BACKUP}certbot-conf/"* "$INFRA_DIR/certbot/conf/" 2>/dev/null || true
+        print_success "Certificados restaurados de $LATEST_BACKUP"
+    fi
+fi
+
+# ===========================================
+# STEP 11: Start Nginx
+# ===========================================
+print_step "Configurando Nginx..."
 
 if sudo test -d "$SSL_CERT_DIR" && sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
     print_success "Certificados SSL encontrados"
