@@ -384,44 +384,54 @@ pool.query(\"SELECT COUNT(*) FROM users\").then(r => {
 print_success "Evolly iniciado"
 
 # ===========================================
-# STEP 10: Restore SSL certificates from backup
+# STEP 10: Configure Nginx and SSL
 # ===========================================
-print_step "Verificando certificados SSL..."
+print_step "Configurando Nginx e SSL..."
 cd $INFRA_DIR
 
 SSL_CERT_DIR="$INFRA_DIR/certbot/conf/live/www.infinityitsolutions.com.br"
+SITES_DISABLED_DIR="$INFRA_DIR/nginx/sites-disabled"
 
-# Se não tem certificados, tentar restaurar do backup
-if ! sudo test -d "$SSL_CERT_DIR" || ! sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
-    LATEST_BACKUP=$(ls -td "$ROOT_DIR/backups"/*/ 2>/dev/null | head -1)
+# Criar diretório para configs desabilitadas
+mkdir -p "$SITES_DISABLED_DIR"
 
-    if [ -n "$LATEST_BACKUP" ] && [ -d "${LATEST_BACKUP}certbot-conf" ]; then
-        print_warning "Restaurando certificados SSL do backup..."
-        sudo cp -r "${LATEST_BACKUP}certbot-conf/"* "$INFRA_DIR/certbot/conf/" 2>/dev/null || true
-        print_success "Certificados restaurados de $LATEST_BACKUP"
-    fi
+# Função para verificar se certificado existe
+cert_exists() {
+    local domain=$1
+    sudo test -f "$INFRA_DIR/certbot/conf/live/$domain/fullchain.pem"
+}
+
+# Verificar se tem certificados principais
+if cert_exists "www.infinityitsolutions.com.br"; then
+    print_success "Certificados SSL encontrados"
+    SSL_EXISTS=true
+else
+    print_warning "Certificados SSL não encontrados - iniciando em modo HTTP"
+    SSL_EXISTS=false
 fi
 
-# ===========================================
-# STEP 11: Start Nginx
-# ===========================================
-print_step "Configurando Nginx..."
+# Se não tem SSL, desabilitar configs que requerem SSL
+if [ "$SSL_EXISTS" = false ]; then
+    # Mover sites/*.conf para sites-disabled/ temporariamente
+    for conf in "$INFRA_DIR/nginx/sites"/*.conf; do
+        [ -f "$conf" ] && mv "$conf" "$SITES_DISABLED_DIR/" 2>/dev/null || true
+    done
 
-if sudo test -d "$SSL_CERT_DIR" && sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
-    print_success "Certificados SSL encontrados"
-    if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.ssl" ]; then
-        cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
-        print_success "Configuração HTTPS aplicada"
-    fi
-else
-    print_warning "Certificados SSL não encontrados - usando configuração HTTP"
+    # Usar config HTTP
     if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.nossl" ]; then
         cp "$INFRA_DIR/nginx/conf.d/default.conf.nossl" "$INFRA_DIR/nginx/conf.d/default.conf"
         print_success "Configuração HTTP aplicada"
     fi
+else
+    # Usar config HTTPS
+    if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.ssl" ]; then
+        cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
+        print_success "Configuração HTTPS aplicada"
+    fi
 fi
 
 # Iniciar nginx
+print_step "Iniciando Nginx..."
 docker compose up -d nginx
 
 sleep 3
@@ -430,47 +440,77 @@ if docker ps | grep -q nginx-proxy; then
     print_success "Nginx iniciado"
 else
     print_error "Nginx não iniciou. Verifique: docker logs nginx-proxy"
+    exit 1
 fi
 
-# Se não tem SSL, tentar gerar
-if ! sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
+# ===========================================
+# STEP 11: Generate SSL certificates
+# ===========================================
+if [ "$SSL_EXISTS" = false ]; then
     print_step "Gerando certificados SSL..."
 
+    # Certificados principais
     docker compose run --rm certbot certonly --webroot \
         -w /var/www/certbot \
         -d www.infinityitsolutions.com.br \
         -d infinityitsolutions.com.br \
         --email contato@infinityitsolutions.com.br \
-        --agree-tos --no-eff-email --non-interactive || print_warning "Falha SSL site principal"
+        --agree-tos --no-eff-email --non-interactive && \
+        print_success "SSL: www.infinityitsolutions.com.br" || \
+        print_warning "Falha SSL site principal"
 
     docker compose run --rm certbot certonly --webroot \
         -w /var/www/certbot \
         -d personalweb.infinityitsolutions.com.br \
         --email contato@infinityitsolutions.com.br \
-        --agree-tos --no-eff-email --non-interactive || print_warning "Falha SSL personalweb"
+        --agree-tos --no-eff-email --non-interactive && \
+        print_success "SSL: personalweb.infinityitsolutions.com.br" || \
+        print_warning "Falha SSL personalweb"
 
     docker compose run --rm certbot certonly --webroot \
         -w /var/www/certbot \
         -d personalapi.infinityitsolutions.com.br \
         --email contato@infinityitsolutions.com.br \
-        --agree-tos --no-eff-email --non-interactive || print_warning "Falha SSL personalapi"
+        --agree-tos --no-eff-email --non-interactive && \
+        print_success "SSL: personalapi.infinityitsolutions.com.br" || \
+        print_warning "Falha SSL personalapi"
 
     docker compose run --rm certbot certonly --webroot \
         -w /var/www/certbot \
         -d evolly.infinityitsolutions.com.br \
         --email contato@infinityitsolutions.com.br \
-        --agree-tos --no-eff-email --non-interactive || print_warning "Falha SSL evolly"
+        --agree-tos --no-eff-email --non-interactive && \
+        print_success "SSL: evolly.infinityitsolutions.com.br" || \
+        print_warning "Falha SSL evolly"
 
-    # Se certificados foram gerados, aplicar HTTPS
-    if sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
+    # Verificar se certificados foram gerados
+    if cert_exists "www.infinityitsolutions.com.br"; then
         print_success "Certificados SSL gerados!"
+
+        # Aplicar configuração HTTPS
         if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.ssl" ]; then
             cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
-            docker compose restart nginx
-            print_success "Configuração HTTPS aplicada"
         fi
+
+        # Restaurar configs de sites
+        for conf in "$SITES_DISABLED_DIR"/*.conf; do
+            if [ -f "$conf" ]; then
+                site_name=$(basename "$conf" .conf)
+                # Verificar se o certificado do site existe antes de restaurar
+                if cert_exists "$site_name.com.br" || cert_exists "$site_name.infinityitsolutions.com.br"; then
+                    mv "$conf" "$INFRA_DIR/nginx/sites/"
+                    print_success "Site habilitado: $site_name"
+                else
+                    print_warning "Site $site_name aguardando certificado SSL"
+                fi
+            fi
+        done
+
+        # Reiniciar nginx com HTTPS
+        docker compose restart nginx
+        print_success "Nginx reiniciado com HTTPS"
     else
-        print_warning "Certificados não gerados. Configure DNS e rode: ./manage.sh ssl-init"
+        print_warning "Certificados não gerados. Verifique DNS e rode: ./manage.sh ssl-init"
     fi
 fi
 
