@@ -418,9 +418,14 @@ cd $INFRA_DIR
 
 SSL_CERT_DIR="$INFRA_DIR/certbot/conf/live/www.infinityitsolutions.com.br"
 SITES_DISABLED_DIR="$INFRA_DIR/nginx/sites-disabled"
+CONFD_DISABLED_DIR="$INFRA_DIR/nginx/conf.d-disabled"
 
-# Criar diretório para configs desabilitadas
+# Criar diretórios para configs desabilitadas
 mkdir -p "$SITES_DISABLED_DIR"
+mkdir -p "$CONFD_DISABLED_DIR"
+
+# Lista de configs SSL individuais que devem ser desabilitadas em modo HTTP
+SSL_CONFIGS="evolly.conf infinityitsolutions.conf personalapi.conf personalweb.conf"
 
 # Função para verificar se certificado existe
 cert_exists() {
@@ -444,6 +449,14 @@ if [ "$SSL_EXISTS" = false ]; then
         [ -f "$conf" ] && mv "$conf" "$SITES_DISABLED_DIR/" 2>/dev/null || true
     done
 
+    # Mover configs SSL individuais de conf.d/ para conf.d-disabled/
+    for conf_name in $SSL_CONFIGS; do
+        if [ -f "$INFRA_DIR/nginx/conf.d/$conf_name" ]; then
+            mv "$INFRA_DIR/nginx/conf.d/$conf_name" "$CONFD_DISABLED_DIR/"
+            print_warning "Config SSL desabilitada: $conf_name"
+        fi
+    done
+
     # Usar config HTTP
     if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.nossl" ]; then
         cp "$INFRA_DIR/nginx/conf.d/default.conf.nossl" "$INFRA_DIR/nginx/conf.d/default.conf"
@@ -455,6 +468,14 @@ else
         cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
         print_success "Configuração HTTPS aplicada"
     fi
+
+    # Restaurar configs SSL individuais se estiverem desabilitadas
+    for conf_name in $SSL_CONFIGS; do
+        if [ -f "$CONFD_DISABLED_DIR/$conf_name" ]; then
+            mv "$CONFD_DISABLED_DIR/$conf_name" "$INFRA_DIR/nginx/conf.d/"
+            print_success "Config SSL restaurada: $conf_name"
+        fi
+    done
 fi
 
 # Iniciar nginx
@@ -547,6 +568,14 @@ if [ "$SSL_EXISTS" = false ]; then
         if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.ssl" ]; then
             cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
         fi
+
+        # Restaurar configs SSL individuais de conf.d-disabled/
+        for conf_name in $SSL_CONFIGS; do
+            if [ -f "$CONFD_DISABLED_DIR/$conf_name" ]; then
+                mv "$CONFD_DISABLED_DIR/$conf_name" "$INFRA_DIR/nginx/conf.d/"
+                print_success "Config SSL restaurada: $conf_name"
+            fi
+        done
 
         # Restaurar configs de sites
         for conf in "$SITES_DISABLED_DIR"/*.conf; do
