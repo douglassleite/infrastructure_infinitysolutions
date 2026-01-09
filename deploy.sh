@@ -4,8 +4,11 @@
 # Script de Deploy - Infinity IT Solutions
 # ===========================================
 # Infraestrutura completa incluindo:
+# - Infra (Nginx, PostgreSQL, Redis, Certbot)
 # - Site institucional (www.infinityitsolutions.com.br)
 # - Personal Trainer App (personalweb/personalapi)
+# - Evolly (evolly.infinityitsolutions.com.br)
+# - Evolly Clients (sites de clientes)
 # ===========================================
 
 set -e
@@ -75,17 +78,16 @@ print_step "Criando estrutura de diretórios..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 
-# Subdiretórios (relativos ao diretório do usuário)
+# Subdiretórios (todos no mesmo nível)
 INFRA_DIR="$SCRIPT_DIR"
-WEBSITE_DIR="$ROOT_DIR/website"
-PERSONAL_DIR="$ROOT_DIR/apps/personal-trainer"
-EVOLLY_DIR="$ROOT_DIR/apps/evolly"
+WEBSITE_DIR="$ROOT_DIR/web_infinitysolutions"
+PERSONAL_BACKEND_DIR="$ROOT_DIR/personal_trainer_backend"
+PERSONAL_WEB_DIR="$ROOT_DIR/personal_trainer_web"
+EVOLLY_DIR="$ROOT_DIR/evolly"
+EVOLLY_CLIENTS_DIR="$ROOT_DIR/evolly-clients"
 
-# Criar diretórios
-mkdir -p $INFRA_DIR/{nginx/conf.d,certbot/conf,certbot/www,init-scripts}
-mkdir -p $WEBSITE_DIR
-mkdir -p $PERSONAL_DIR/{backend,web}
-mkdir -p $EVOLLY_DIR
+# Criar diretórios de infra
+mkdir -p $INFRA_DIR/{nginx/conf.d,nginx/sites,certbot/conf,certbot/www,init-scripts}
 
 print_success "Diretórios criados em $ROOT_DIR"
 
@@ -104,8 +106,7 @@ print_step "Verificando arquivos de configuração..."
 # Gerar senhas se não existirem
 if [ ! -f "$INFRA_DIR/.env" ]; then
     print_warning "Criando .env da infraestrutura..."
-    
-    # Usar senhas fixas conforme definido no docker-compose.yml
+
     cat > "$INFRA_DIR/.env" << EOF
 # ===========================================
 # Infinity IT Solutions - Variáveis de Ambiente
@@ -121,33 +122,31 @@ PERSONAL_TRAINER_DB=personal_trainer_db
 PERSONAL_TRAINER_USER=personal_trainer
 PERSONAL_TRAINER_PASSWORD=Mga@2025
 
+# Evolly Database
+EVOLLY_DB=evolly_db
+EVOLLY_USER=evolly
+EVOLLY_PASSWORD=Mga@2025
+
 # Redis
 REDIS_PASSWORD=Mga@2025
 
 # JWT (geradas automaticamente)
 JWT_SECRET=$(generate_password)
 JWT_REFRESH_SECRET=$(generate_password)
-WEDDING_JWT_SECRET=$(generate_password)
-
-# Paths
-WEBSITE_PATH=../website
-EVOLLY_PATH=../apps/evolly
+EVOLLY_JWT_SECRET=$(generate_password)
 EOF
-    
+
     print_success ".env da infraestrutura criado"
 else
-    # Carregar variáveis existentes
-    source "$INFRA_DIR/.env"
     print_success ".env da infraestrutura já existe"
 fi
 
 # Carregar variáveis do .env e exportar
-set -a  # Exportar todas as variáveis automaticamente
+set -a
 source "$INFRA_DIR/.env"
 set +a
 
-# Debug: mostrar que variáveis foram carregadas
-print_success "Variáveis carregadas: POSTGRES_USER=$POSTGRES_USER, POSTGRES_DB=$POSTGRES_DB"
+print_success "Variáveis carregadas: POSTGRES_USER=$POSTGRES_USER"
 
 # ===========================================
 # STEP 3: Clone repositories (usando SSH)
@@ -156,43 +155,54 @@ print_step "Clonando repositórios..."
 
 # Site Institucional
 if [ -d "$WEBSITE_DIR/.git" ]; then
-    cd $WEBSITE_DIR
-    git pull
+    cd $WEBSITE_DIR && git pull
 else
     cd $ROOT_DIR
-    git clone git@github.com:douglassleite/web_infinitysolutions.git website
+    git clone git@github.com:douglassleite/web_infinitysolutions.git web_infinitysolutions
 fi
 print_success "Site institucional atualizado"
 
-# Personal Trainer Backend (privado - usa SSH)
-if [ -d "$PERSONAL_DIR/backend/.git" ]; then
-    cd $PERSONAL_DIR/backend
-    git pull
+# Personal Trainer Backend
+if [ -d "$PERSONAL_BACKEND_DIR/.git" ]; then
+    cd $PERSONAL_BACKEND_DIR && git pull
 else
-    cd $PERSONAL_DIR
-    git clone git@github.com:douglassleite/personal_trainer_backend.git backend
+    cd $ROOT_DIR
+    git clone git@github.com:douglassleite/personal_trainer_backend.git personal_trainer_backend
 fi
 print_success "Backend Personal Trainer atualizado"
 
-# Personal Trainer Web (privado - usa SSH)
-if [ -d "$PERSONAL_DIR/web/.git" ]; then
-    cd $PERSONAL_DIR/web
-    git pull
+# Personal Trainer Web
+if [ -d "$PERSONAL_WEB_DIR/.git" ]; then
+    cd $PERSONAL_WEB_DIR && git pull
 else
-    cd $PERSONAL_DIR
-    git clone git@github.com:douglassleite/personal_trainer_web.git web
+    cd $ROOT_DIR
+    git clone git@github.com:douglassleite/personal_trainer_web.git personal_trainer_web
 fi
 print_success "Frontend Personal Trainer atualizado"
 
-# Evolly (privado - usa SSH)
+# Evolly
 if [ -d "$EVOLLY_DIR/.git" ]; then
-    cd $EVOLLY_DIR
-    git pull
+    cd $EVOLLY_DIR && git pull
 else
-    cd $ROOT_DIR/apps
+    cd $ROOT_DIR
     git clone git@github.com:douglassleite/evolly.git evolly
 fi
 print_success "Evolly atualizado"
+
+# Evolly Clients
+if [ -d "$EVOLLY_CLIENTS_DIR/.git" ]; then
+    cd $EVOLLY_CLIENTS_DIR && git pull
+else
+    cd $ROOT_DIR
+    git clone git@github.com:douglassleite/evolly-clients.git evolly-clients
+fi
+print_success "Evolly Clients atualizado"
+
+# Configurar .env do evolly-clients
+if [ ! -f "$EVOLLY_CLIENTS_DIR/.env" ]; then
+    cp "$EVOLLY_CLIENTS_DIR/.env.example" "$EVOLLY_CLIENTS_DIR/.env"
+    print_success ".env do evolly-clients criado"
+fi
 
 print_success "Repositórios atualizados"
 
@@ -236,74 +246,77 @@ print_step "Aguardando banco de dados..."
 sleep 10
 
 # ===========================================
-# STEP 5: Build and start backend (Personal Trainer)
+# STEP 5: Configure databases
+# ===========================================
+print_step "Configurando bancos de dados..."
+
+# Personal Trainer DB
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='personal_trainer'" | grep -q 1 || \
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -c "CREATE ROLE personal_trainer WITH LOGIN PASSWORD '${PERSONAL_TRAINER_PASSWORD:-Mga@2025}';"
+
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='personal_trainer_db'" | grep -q 1 || \
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -c "CREATE DATABASE personal_trainer_db OWNER personal_trainer;"
+
+print_success "Banco personal_trainer_db configurado"
+
+# Evolly DB
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='evolly'" | grep -q 1 || \
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -c "CREATE ROLE evolly WITH LOGIN PASSWORD '${EVOLLY_PASSWORD:-Mga@2025}';"
+
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='evolly_db'" | grep -q 1 || \
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -c "CREATE DATABASE evolly_db OWNER evolly;"
+
+# Permissões Evolly
+docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE evolly_db TO evolly;" 2>/dev/null || true
+docker exec infinity-postgres-db psql -U infinityitsolutions -d evolly_db -c "
+GRANT ALL ON SCHEMA public TO evolly;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO evolly;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO evolly;
+" 2>/dev/null || true
+
+print_success "Banco evolly_db configurado"
+
+# ===========================================
+# STEP 6: Build and start Personal Trainer Backend
 # ===========================================
 print_step "Construindo e iniciando backend Personal Trainer..."
-cd $PERSONAL_DIR/backend
+cd $PERSONAL_BACKEND_DIR
 
 # Criar/Atualizar .env do backend
-print_warning "Criando .env do backend..."
-
-# Usar variáveis do Personal Trainer ou fallback para as padrão
-PT_USER="${PERSONAL_TRAINER_USER:-infinityitsolutions}"
+PT_USER="${PERSONAL_TRAINER_USER:-personal_trainer}"
 PT_PASS="${PERSONAL_TRAINER_PASSWORD:-Mga@2025}"
 PT_DB="${PERSONAL_TRAINER_DB:-personal_trainer_db}"
 
 cat > ".env" << EOF
-# ===========================================
-# Personal Trainer Backend - Variáveis de Ambiente
-# ===========================================
-# GERADO AUTOMATICAMENTE EM $(date)
-
+# Personal Trainer Backend
 NODE_ENV=production
 PORT=3000
-
-# Database (usando alias postgres-db da rede)
 DATABASE_URL="postgresql://${PT_USER}:${PT_PASS}@postgres-db:5432/${PT_DB}?schema=public"
-
-# Redis
 REDIS_URL="redis://:${REDIS_PASSWORD}@redis:6379"
-
-# JWT
 JWT_SECRET=${JWT_SECRET}
 JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
 JWT_EXPIRES_IN=15m
 JWT_REFRESH_EXPIRES_IN=7d
-
-# CORS
 CORS_ORIGIN=https://personalweb.infinityitsolutions.com.br
 EOF
 
-print_success ".env do backend criado"
-
-# Run migrations
 docker compose -f docker-compose.prod.yml build
-docker compose -f docker-compose.prod.yml run --rm backend npx prisma migrate deploy
+docker compose -f docker-compose.prod.yml run --rm backend npx prisma migrate deploy || true
 docker compose -f docker-compose.prod.yml up -d
 
-print_success "Backend iniciado"
+print_success "Backend Personal Trainer iniciado"
 
 # ===========================================
-# STEP 6: Build and start frontend (Personal Trainer)
+# STEP 7: Build and start Personal Trainer Frontend
 # ===========================================
 print_step "Construindo e iniciando frontend Personal Trainer..."
-cd $PERSONAL_DIR/web
+cd $PERSONAL_WEB_DIR
 
-# Criar .env do frontend se não existir
 if [ ! -f ".env" ]; then
-    print_warning "Criando .env do frontend..."
-    
     cat > ".env" << EOF
-# ===========================================
-# Personal Trainer Frontend - Variáveis de Ambiente
-# ===========================================
-# GERADO AUTOMATICAMENTE
-
 VITE_API_URL=https://personalapi.infinityitsolutions.com.br
 VITE_APP_NAME=Personal Trainer
 EOF
-    
-    print_success ".env do frontend criado"
 fi
 
 docker compose -f docker-compose.prod.yml build
@@ -312,65 +325,48 @@ docker compose -f docker-compose.prod.yml up -d
 print_success "Frontend Personal Trainer iniciado"
 
 # ===========================================
-# STEP 7: Start Infinity Website (Site Institucional)
+# STEP 8: Build and start Website
 # ===========================================
 print_step "Construindo e iniciando site institucional..."
-cd $INFRA_DIR
-docker compose up -d --build infinity-website
+cd $WEBSITE_DIR
+
+docker compose up -d --build
 
 print_success "Site institucional iniciado"
 
 # ===========================================
-# STEP 7.5: Start Evolly
+# STEP 9: Build and start Evolly
 # ===========================================
 print_step "Construindo e iniciando Evolly..."
-cd $INFRA_DIR
+cd $EVOLLY_DIR
 
-# Criar banco e usuário wedding se não existirem
-print_step "Verificando banco de dados wedding_system..."
-
-# Criar usuário wedding se não existir
-docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='wedding'" | grep -q 1 || \
-docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -c "CREATE ROLE wedding WITH LOGIN PASSWORD '${POSTGRES_PASSWORD:-Mga@2025}';"
-
-if docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -tc "SELECT 1 FROM pg_roles WHERE rolname='wedding'" | grep -q 1; then
-    print_success "Usuário wedding OK"
-else
-    print_warning "Falha ao criar usuário wedding"
+# Criar .env do Evolly se não existir
+if [ ! -f ".env" ]; then
+    cat > ".env" << EOF
+NODE_ENV=production
+PORT=8004
+DB_HOST=postgres
+DB_PORT=5432
+DB_NAME=evolly_db
+DB_USER=evolly
+DB_PASSWORD=${EVOLLY_PASSWORD:-Mga@2025}
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=${REDIS_PASSWORD:-Mga@2025}
+JWT_SECRET=${EVOLLY_JWT_SECRET}
+JWT_EXPIRES_IN=7d
+EOF
 fi
 
-# Criar banco wedding_system se não existir
-docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='wedding_system'" | grep -q 1 || \
-docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -c "CREATE DATABASE wedding_system OWNER wedding;"
-
-if docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -tc "SELECT 1 FROM pg_database WHERE datname='wedding_system'" | grep -q 1; then
-    print_success "Banco wedding_system OK"
-else
-    print_warning "Falha ao criar banco wedding_system"
-fi
-
-# Dar permissões
-docker exec infinity-postgres-db psql -U infinityitsolutions -d postgres -c "GRANT ALL PRIVILEGES ON DATABASE wedding_system TO wedding;" 2>/dev/null || true
-
-docker exec infinity-postgres-db psql -U infinityitsolutions -d wedding_system -c "
-GRANT ALL ON SCHEMA public TO wedding;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO wedding;
-ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO wedding;
-" 2>/dev/null || true
-
-print_success "Banco wedding_system configurado"
-
-# Build e start do container
-docker compose up -d --build evolly
+docker compose up -d --build
 
 # Aguardar container iniciar
 sleep 5
 
-# Rodar migrations (CREATE TABLE IF NOT EXISTS - não apaga dados)
-print_step "Executando migrations do Evolly..."
+# Migrations
 docker exec evolly npm run migrate || print_warning "Migration já executada ou falhou"
 
-# Rodar seed apenas se for primeira execução (verificar se tabela tem dados)
+# Seed se necessário
 docker exec evolly sh -c 'node -e "
 const { Pool } = require(\"pg\");
 const pool = new Pool();
@@ -383,31 +379,27 @@ pool.query(\"SELECT COUNT(*) FROM users\").then(r => {
     process.exit(1);
   }
 }).catch(() => process.exit(0));
-"' && docker exec evolly npm run seed || print_success "Seed já executado anteriormente"
+"' && docker exec evolly npm run seed || print_success "Seed já executado"
 
 print_success "Evolly iniciado"
 
 # ===========================================
-# STEP 8: Start Nginx (Reverse Proxy) com SSL automático
+# STEP 10: Start Nginx
 # ===========================================
 print_step "Configurando Nginx..."
 cd $INFRA_DIR
 
 # Verificar se certificados SSL existem
-# Nota: Os certificados pertencem ao root, então usamos sudo para verificar
 SSL_CERT_DIR="$INFRA_DIR/certbot/conf/live/www.infinityitsolutions.com.br"
 
-# Verificar se o diretório do certificado existe (usa sudo pois pertence ao root)
 if sudo test -d "$SSL_CERT_DIR" && sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
     print_success "Certificados SSL encontrados"
-    # Usar configuração com SSL
     if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.ssl" ]; then
         cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
         print_success "Configuração HTTPS aplicada"
     fi
 else
     print_warning "Certificados SSL não encontrados - usando configuração HTTP"
-    # Usar configuração sem SSL para permitir geração de certificados
     if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.nossl" ]; then
         cp "$INFRA_DIR/nginx/conf.d/default.conf.nossl" "$INFRA_DIR/nginx/conf.d/default.conf"
         print_success "Configuração HTTP aplicada"
@@ -417,59 +409,45 @@ fi
 # Iniciar nginx
 docker compose up -d nginx
 
-# Aguardar nginx iniciar
 sleep 3
 
-# Verificar se nginx está rodando
 if docker ps | grep -q nginx-proxy; then
     print_success "Nginx iniciado"
 else
-    print_error "Nginx não iniciou corretamente. Verifique: docker logs nginx-proxy"
+    print_error "Nginx não iniciou. Verifique: docker logs nginx-proxy"
 fi
 
-# Se não tem SSL, tentar gerar certificados automaticamente
-if [ ! -f "$SSL_CERT_PATH" ]; then
+# Se não tem SSL, tentar gerar
+if ! sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
     print_step "Gerando certificados SSL..."
-    
-    # Gerar certificado para o site principal
+
     docker compose run --rm certbot certonly --webroot \
         -w /var/www/certbot \
         -d www.infinityitsolutions.com.br \
         -d infinityitsolutions.com.br \
         --email contato@infinityitsolutions.com.br \
-        --agree-tos \
-        --no-eff-email \
-        --non-interactive || print_warning "Falha ao gerar certificado do site principal (DNS pode não estar configurado)"
-    
-    # Gerar certificado para personalweb
+        --agree-tos --no-eff-email --non-interactive || print_warning "Falha SSL site principal"
+
     docker compose run --rm certbot certonly --webroot \
         -w /var/www/certbot \
         -d personalweb.infinityitsolutions.com.br \
         --email contato@infinityitsolutions.com.br \
-        --agree-tos \
-        --no-eff-email \
-        --non-interactive || print_warning "Falha ao gerar certificado do personalweb"
-    
-    # Gerar certificado para personalapi
+        --agree-tos --no-eff-email --non-interactive || print_warning "Falha SSL personalweb"
+
     docker compose run --rm certbot certonly --webroot \
         -w /var/www/certbot \
         -d personalapi.infinityitsolutions.com.br \
         --email contato@infinityitsolutions.com.br \
-        --agree-tos \
-        --no-eff-email \
-        --non-interactive || print_warning "Falha ao gerar certificado do personalapi"
+        --agree-tos --no-eff-email --non-interactive || print_warning "Falha SSL personalapi"
 
-    # Gerar certificado para wedding
     docker compose run --rm certbot certonly --webroot \
         -w /var/www/certbot \
-        -d wedding.infinityitsolutions.com.br \
+        -d evolly.infinityitsolutions.com.br \
         --email contato@infinityitsolutions.com.br \
-        --agree-tos \
-        --no-eff-email \
-        --non-interactive || print_warning "Falha ao gerar certificado do wedding"
+        --agree-tos --no-eff-email --non-interactive || print_warning "Falha SSL evolly"
 
-    # Se certificados foram gerados, aplicar configuração SSL
-    if sudo test -d "$SSL_CERT_DIR" && sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
+    # Se certificados foram gerados, aplicar HTTPS
+    if sudo test -f "$SSL_CERT_DIR/fullchain.pem"; then
         print_success "Certificados SSL gerados!"
         if [ -f "$INFRA_DIR/nginx/conf.d/default.conf.ssl" ]; then
             cp "$INFRA_DIR/nginx/conf.d/default.conf.ssl" "$INFRA_DIR/nginx/conf.d/default.conf"
@@ -477,7 +455,7 @@ if [ ! -f "$SSL_CERT_PATH" ]; then
             print_success "Configuração HTTPS aplicada"
         fi
     else
-        print_warning "Certificados não gerados. Configure o DNS e rode: ./manage.sh ssl-init"
+        print_warning "Certificados não gerados. Configure DNS e rode: ./manage.sh ssl-init"
     fi
 fi
 
@@ -491,24 +469,24 @@ echo -e "${GREEN}========================================${NC}"
 echo ""
 echo "URLs:"
 echo "  - Site Principal: https://www.infinityitsolutions.com.br"
-echo "  - Personal Web: https://personalweb.infinityitsolutions.com.br"
-echo "  - Personal API: https://personalapi.infinityitsolutions.com.br"
-echo "  - Wedding System: https://wedding.infinityitsolutions.com.br"
+echo "  - Personal Web:   https://personalweb.infinityitsolutions.com.br"
+echo "  - Personal API:   https://personalapi.infinityitsolutions.com.br"
+echo "  - Evolly:         https://evolly.infinityitsolutions.com.br"
 echo ""
-echo "Arquivos de configuração:"
-echo "  - Infraestrutura: $INFRA_DIR/.env"
-echo "  - Backend: $PERSONAL_DIR/backend/.env"
-echo "  - Frontend: $PERSONAL_DIR/web/.env"
-echo "  - Evolly: $EVOLLY_DIR (usa .env da infra)"
+echo "Projetos:"
+echo "  - Infra:          $INFRA_DIR"
+echo "  - Website:        $WEBSITE_DIR"
+echo "  - Personal API:   $PERSONAL_BACKEND_DIR"
+echo "  - Personal Web:   $PERSONAL_WEB_DIR"
+echo "  - Evolly:         $EVOLLY_DIR"
+echo "  - Evolly Clients: $EVOLLY_CLIENTS_DIR"
 echo ""
-echo -e "${YELLOW}IMPORTANTE: As senhas foram geradas automaticamente.${NC}"
-echo -e "${YELLOW}Verifique o arquivo $INFRA_DIR/.env para ver as credenciais.${NC}"
+echo "Para adicionar clientes Evolly:"
+echo "  cd $EVOLLY_CLIENTS_DIR"
+echo "  ./deploy-client.sh <nome> subdomain <subdominio> <modelo>"
 echo ""
 echo "Comandos úteis:"
-echo "  - Ver logs: ./manage.sh logs"
-echo "  - Status: ./manage.sh status"
-echo "  - Gerar SSL: ./manage.sh ssl-init"
-echo ""
-echo "Próximo passo: Configure o DNS e gere os certificados SSL com:"
-echo "  ./manage.sh ssl-init"
+echo "  - Ver logs:    ./manage.sh logs"
+echo "  - Status:      ./manage.sh status"
+echo "  - Gerar SSL:   ./manage.sh ssl-init"
 echo ""

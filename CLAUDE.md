@@ -1,6 +1,24 @@
 # Infraestrutura Infinity IT Solutions
 
-Infraestrutura Docker centralizada para todos os projetos da Infinity IT Solutions. Gerencia nginx, PostgreSQL, Redis e containers de aplicacoes.
+Infraestrutura Docker centralizada para todos os projetos da Infinity IT Solutions. Gerencia **APENAS** servicos de infraestrutura: nginx (proxy reverso), PostgreSQL, Redis e SSL.
+
+## Arquitetura
+
+```
+infrastructure_infinitysolutions/     <- APENAS INFRA
+├── nginx + certbot + postgres + redis
+
+evolly/                               <- Projeto separado (sistema de eventos)
+├── docker-compose.yml proprio
+
+web_infinitysolutions/                <- Projeto separado (site institucional)
+├── docker-compose.yml proprio
+
+evolly-clients/                       <- Sites de clientes Evolly
+├── vanessaemarlo/
+├── outrocasal/
+└── deploy-client.sh
+```
 
 ## Configuracao
 
@@ -15,45 +33,48 @@ Infraestrutura Docker centralizada para todos os projetos da Infinity IT Solutio
 
 ```
 infrastructure_infinitysolutions/
-├── docker-compose.yml          # Compose principal
+├── docker-compose.yml          # Compose principal (apenas infra)
+├── docker-compose.local.yml    # Desenvolvimento local
 ├── .env                        # Variaveis de ambiente
 ├── manage.sh                   # Script de gerenciamento
 ├── nginx/
 │   ├── nginx.conf              # Config principal
-│   ├── conf.d/                 # Configs ativas dos sites
+│   ├── conf.d/                 # Configs estaticas dos sites
 │   │   ├── 00-base.conf        # Upstreams
 │   │   ├── 01-certbot.conf     # HTTP + certbot
 │   │   ├── infinityitsolutions.conf
 │   │   ├── personalweb.conf
 │   │   ├── personalapi.conf
-│   │   ├── wedding.conf
+│   │   └── evolly.conf
+│   ├── sites/                  # Configs dinamicas (clientes evolly)
 │   │   └── vanessaemarlo.conf
 │   ├── sites-available/        # Configs desabilitadas
 │   └── templates/              # Templates para novos sites
 ├── certbot/
 │   ├── conf/                   # Certificados SSL
 │   └── www/                    # Challenge ACME
-├── wedding-sites/              # Sites de casamento estaticos
-│   └── vanessaemarlo/
-│       ├── docker-compose.yml
-│       ├── nginx.conf
-│       └── site/
-└── docs/
-    └── DEPLOY_EVOLLY.md
+└── init-scripts/
+    └── 01-create-databases.sql
 ```
 
-## Servicos
+## Servicos da Infraestrutura
 
 | Container | Porta | Descricao |
 |-----------|-------|-----------|
 | nginx-proxy | 80, 443 | Proxy reverso e SSL |
 | infinity-postgres-db | 5432 | Banco de dados |
 | infinity-redis-cache | 6379 | Cache |
-| infinity-website | 3002 | Site institucional |
-| personal-trainer-backend | 3001 | API Personal Trainer |
-| personal-trainer-web | 3000 | Web Personal Trainer |
-| evolly | 8004 | Sistema de eventos |
-| evolly-vanessaemarlo | 80 | Site vanessaemarlo.com.br |
+| certbot | - | Renovacao SSL |
+
+## Projetos Externos (docker-compose proprio)
+
+| Projeto | Container | Porta | Repositorio |
+|---------|-----------|-------|-------------|
+| Evolly | evolly | 8004 | ../evolly |
+| Website | infinity-website | 80 | ../web_infinitysolutions |
+| Personal Trainer API | personal-trainer-backend | 3001 | Separado |
+| Personal Trainer Web | personal-trainer-web | 3000 | Separado |
+| Clientes Evolly | evolly-* | 80 | ../evolly-clients |
 
 ## Comandos Principais
 
@@ -67,38 +88,20 @@ infrastructure_infinitysolutions/
 ./manage.sh disk                # Ver uso de disco
 ```
 
-### Por Servico
+### Nginx
 
 ```bash
-# Evolly
-./manage.sh logs-evolly         # Logs
-./manage.sh restart-evolly      # Reiniciar
-./manage.sh update-evolly       # Atualizar (git pull + rebuild)
-./manage.sh migrate-evolly      # Migrations
-./manage.sh db-evolly           # Acesso ao banco
-
-# Personal Trainer
-./manage.sh logs-backend        # Logs backend
-./manage.sh logs-web            # Logs frontend
-./manage.sh restart-backend     # Reiniciar backend
-./manage.sh restart-web         # Reiniciar frontend
-./manage.sh update-backend      # Atualizar backend
-./manage.sh update-web          # Atualizar frontend
-./manage.sh migrate             # Migrations Prisma
-
-# Site Institucional
-./manage.sh logs-website        # Logs
-./manage.sh restart-website     # Reiniciar
-./manage.sh update-website      # Atualizar
-
-# Nginx
-./manage.sh logs-nginx          # Logs
+./manage.sh logs-nginx          # Ver logs
 ./manage.sh restart-nginx       # Reiniciar
+docker exec nginx-proxy nginx -t  # Testar config
+docker exec nginx-proxy nginx -s reload  # Recarregar
+```
 
-# Banco de Dados
-./manage.sh db-shell            # PostgreSQL Personal Trainer
-./manage.sh db-evolly           # PostgreSQL Evolly
-./manage.sh redis-shell         # Redis
+### Banco de Dados
+
+```bash
+./manage.sh db-shell            # PostgreSQL shell
+./manage.sh redis-shell         # Redis shell
 ```
 
 ### Gerenciamento de SSL/Dominios
@@ -111,33 +114,31 @@ infrastructure_infinitysolutions/
 ./manage.sh ssl-status             # Status dos certificados
 ```
 
-## Arquitetura Nginx Modular
+## Arquitetura Nginx
 
-O nginx usa configs separadas para cada site, permitindo que um problema em um dominio nao afete os outros:
+### Estrutura de Configs
 
 ```
-nginx/conf.d/
-├── 00-base.conf           # Upstreams (carrega primeiro)
-├── 01-certbot.conf        # HTTP server + certbot
-├── infinityitsolutions.conf
-├── personalweb.conf
-├── personalapi.conf
-├── wedding.conf
-└── vanessaemarlo.conf
+nginx/
+├── conf.d/           # Configs estaticas (sempre ativas)
+│   ├── 00-base.conf  # Upstreams
+│   └── *.conf        # Sites fixos
+└── sites/            # Configs dinamicas (clientes evolly)
+    └── *.conf        # Geradas por evolly-clients/deploy-client.sh
 ```
 
-### Adicionar Novo Site
+### Adicionar Novo Cliente Evolly
 
-1. Criar config em `nginx/sites-available/novo-site.conf`
-2. Rodar `./manage.sh ssl-add novo-site.com.br`
-3. O comando gera o certificado e copia a config para `conf.d/`
-
-### Desabilitar Site
+Usar o script em `../evolly-clients/deploy-client.sh`:
 
 ```bash
-./manage.sh ssl-remove dominio.com.br
-# Move config de conf.d/ para sites-available/
-# Certificado e mantido para futuro uso
+cd ../evolly-clients
+
+# Subdominio
+./deploy-client.sh novocliente subdomain novocliente modelo-9
+
+# Dominio proprio
+./deploy-client.sh novocliente custom dominio.com.br modelo-9
 ```
 
 ## Volumes Persistentes
@@ -146,39 +147,36 @@ nginx/conf.d/
 |--------|-----|
 | postgres_data | Dados do PostgreSQL |
 | redis_data | Dados do Redis |
-| certbot_conf | Certificados SSL |
-| certbot_www | Challenge ACME |
-| evolly_uploads | Uploads do Evolly |
 
 ## Variaveis de Ambiente (.env)
 
 ```env
-# Paths dos projetos
-WEBSITE_PATH=../website
-PERSONAL_PATH=../apps/personal-trainer
-EVOLLY_PATH=../apps/evolly
-
 # PostgreSQL
-POSTGRES_USER=postgres
+POSTGRES_USER=infinityitsolutions
 POSTGRES_PASSWORD=xxxxx
-POSTGRES_DB=infinity_db
+POSTGRES_DB=infinitysolutions_db
 
 # Redis
 REDIS_PASSWORD=xxxxx
-
-# JWT
-JWT_SECRET=xxxxx
 ```
 
 ## Dominios Configurados
 
-| Dominio | Servico |
-|---------|---------|
-| infinityitsolutions.com.br | Site institucional |
-| personalweb.infinityitsolutions.com.br | Personal Trainer Web |
-| personalapi.infinityitsolutions.com.br | Personal Trainer API |
-| wedding.infinityitsolutions.com.br | Evolly Admin |
-| vanessaemarlo.com.br | Site de casamento |
+| Dominio | Servico | Config |
+|---------|---------|--------|
+| infinityitsolutions.com.br | Site institucional | conf.d/ |
+| personalweb.infinityitsolutions.com.br | Personal Trainer Web | conf.d/ |
+| personalapi.infinityitsolutions.com.br | Personal Trainer API | conf.d/ |
+| evolly.infinityitsolutions.com.br | Evolly Admin | conf.d/ |
+| vanessaemarlo.com.br | Cliente Evolly | sites/ |
+
+## Redes Docker
+
+| Rede | Uso |
+|------|-----|
+| infinityitsolutions-network | Rede principal compartilhada |
+| personal_trainer_infrastructure_app-network | Personal Trainer backend |
+| personal-trainer-network | Personal Trainer frontend |
 
 ## Troubleshooting
 
@@ -191,8 +189,8 @@ docker exec nginx-proxy nginx -t
 # Ver logs
 docker logs nginx-proxy --tail 50
 
-# Se certificado nao existe, desabilitar site
-./manage.sh ssl-remove dominio-com-problema.com.br
+# Se certificado nao existe, comentar o site temporariamente
+mv nginx/sites/problema.conf nginx/sites/problema.conf.disabled
 docker compose restart nginx
 ```
 
@@ -205,6 +203,7 @@ docker network inspect infinityitsolutions-network
 # Recriar rede se necessario
 docker compose down
 docker network rm infinityitsolutions-network
+docker network create infinityitsolutions-network
 docker compose up -d
 ```
 
@@ -215,27 +214,11 @@ docker compose up -d
 ./manage.sh restart-nginx
 ```
 
-### Banco de dados nao conecta
-
-```bash
-# Verificar se container esta rodando
-docker ps | grep postgres
-
-# Ver logs
-docker logs infinity-postgres-db --tail 50
-
-# Reiniciar
-docker compose restart postgres
-```
-
 ## Regras de Manutencao
-
-**OBRIGATORIO: Ao fazer alteracoes na infraestrutura, atualizar a documentacao correspondente.**
 
 | Tipo de Alteracao | Arquivo a Atualizar |
 |-------------------|---------------------|
-| Novo dominio/site | Este CLAUDE.md e DEPLOY_EVOLLY.md |
-| Novo container/servico | Este CLAUDE.md e docker-compose.yml |
-| Mudancas em manage.sh | Este CLAUDE.md |
+| Novo servico infra | Este CLAUDE.md e docker-compose.yml |
+| Novo dominio fixo | Este CLAUDE.md e conf.d/ |
+| Novo cliente evolly | Usar deploy-client.sh |
 | Mudancas no nginx | Este CLAUDE.md |
-| Deploy de novo projeto | Criar doc em docs/ |
