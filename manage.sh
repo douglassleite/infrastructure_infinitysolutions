@@ -471,10 +471,14 @@ case "$1" in
             exit 1
         fi
 
+        # Copiar para default.conf (arquivo que nginx usa)
+        echo -e "${GREEN}Aplicando configuração...${NC}"
+        cp nginx/conf.d/default.conf.ssl nginx/conf.d/default.conf
+
         # Testar e reiniciar nginx
         echo -e "${GREEN}Testando configuração nginx...${NC}"
         if docker exec nginx-proxy nginx -t; then
-            docker exec nginx-proxy nginx -s reload
+            docker compose restart nginx
             echo ""
             echo -e "${GREEN}============================================${NC}"
             echo -e "${GREEN}  Domínio alterado com sucesso!${NC}"
